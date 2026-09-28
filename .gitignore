@@ -1,0 +1,104 @@
+# ============================================================
+# 深海汤屋 · 忽略规则
+# ------------------------------------------------------------
+# 关键前提：本仓库是 **public**，且 GitHub Pages 会把整个仓库
+# 目录当静态站发布 —— 仓库里的任何文件都能被匿名下载。
+#
+# 【2026-09-23 策略变更】汤底改为**明文公开**：
+#   公开汤库档（js/library.public.js / js/library.data.js）含 truth，正常提交，
+#   供任何人查阅下载。防作弊交给玩家自觉（汤面网上也搜得到，藏底拦不住真想作弊的人）。
+#   仍不进仓库的，只剩「内部数据管线中间产物」与「服务端部署产物」：
+#   data/library/ 与 worker/src/*.data.js。
+# ============================================================
+
+# ---- 内部数据管线与部署产物（仍不进仓库）----
+# data/library/ 与 js/library.data.js 是「源/中间产物」；对外公开的汤底
+# 由构建产物 js/library.public.js 承载（含 truth，正常提交）。
+js/library.data.js
+
+# ---- 本地探针 / 临时验证脚本 ----
+_probe/
+# 根目录下的临时探针页：只为本地量尺寸，一旦推上去会被 GitHub Pages 当页面发布
+_probe_*.html
+
+# ---- 本地临时日志 / 中间输出（不进仓库）----
+tools/_wrangler_dev.log
+tools/_wrangler*.log
+
+# ---- Worker 本地状态与生成的服务端题库 ----
+worker/.wrangler/
+worker/node_modules/
+worker/src/library.data.js
+worker/src/puzzles.data.js
+worker/.dev.vars
+.dev.vars
+*.pem
+
+# ---- 本地留档 / 备份 / 调试临时文件（不进仓库）----
+# data/Library/ ：本地构建源（已过滤版），构建产物 js/library.public.js 才对
+# _local_backup/ ：临时移出的 .bak-solotruth 旧版备份
+# data/library/ ：原始全量源档与「被过滤题目留档」
+data/Library/
+data/library/
+_local_backup/
+*.bak-*
+*.bak
+_imp*.txt
+_import_out.txt
+_verify_filter.*
+
+# ---- Python / Node ----
+__pycache__/
+*.pyc
+node_modules/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.opensquilla/
+Thumbs.db
+Desktop.ini
+
+# ---- 2026-09-28 体检的临时缓存：第三方仓库源码、抓回的网页、可重建的全量转储 ----
+# 这些个体积大、含他人代码或原始 HTML，一旦提交就会被 GitHub Pages 当静态文件公开下载
+tools/checkup_20260928/gh/
+tools/checkup_20260928/_tmp_*
+tools/checkup_20260928/*.html
+tools/checkup_20260928/*.xml
+tools/checkup_20260928/all.json
+tools/checkup_20260928/batches/
+tools/checkup_20260928/trans_batches/
+tools/checkup_20260928/pollution.json
+tools/checkup_20260928/align_candidates.json
+tools/checkup_20260928/meta_hits.json
+tools/checkup_20260928/trans_pre.json
+tools/checkup_20260928/tail_*.txt
+tools/checkup_20260928/*.tmp
+tools/checkup_20260928/align_candidates.txt
+
+# 2026-09-28 本轮采集/复检：原站日文正文与中间产物一律不入库
+tools/check2_align/
+tools/check2_pair/
+tools/llt_trans_in2/
+tools/llt_trans_out2/
+tools/llt_dump2.json
+tools/llt_pool2.json
+tools/llt2_fresh.json
+tools/llt2_reserve.json
+tools/llt2_trans_all.json
+tools/llt2_trans_clean.json
+tools/llt2_dropped.json
+tools/llt2_trans_problems.json
+tools/stage_l3_log.json
+tools/_verify*.txt
+tools/_vsum.txt
+tools/_cats.txt
+tools/_t.html
+tools/_tags.html
+tools/_yng_sm.gz
+tools/_write_out*.py
+tools/_fetch2.log
+tools/_pool2.log
+/_tmp_*
+.wrangler/
+tools/checkup_20260928/backfill*.json
