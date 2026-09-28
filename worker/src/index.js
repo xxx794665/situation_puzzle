@@ -18,6 +18,7 @@ import {
   puzzleLayer as _layer
 } from "./engine.js";
 import { getPuzzle as _get } from "./engine.js";
+import { doRpc } from "./do-rpc.js";
 const allPuzzleIds = _allIds;
 const corePuzzleIds = _coreIds;
 const publicPuzzle = _pub;
@@ -98,6 +99,14 @@ function roomStub(env, code) {
   return env.ROOM.get(id);
 }
 
+/* 内部 RPC 的 GET 形态：动作与载荷走查询串（?p=<encodeURIComponent(JSON)>，
+ * room.js 的 fetch 对 GET 请求会从 p 还原 body）。DO 调用不出网络边界，
+ * 内部动作载荷都很小，GET 足够。 */
+function rpcGet(stub, actionQuery, payload) {
+  const p = payload ? "&p=" + encodeURIComponent(JSON.stringify(payload)) : "";
+  return doRpc(stub, new Request("/?action=" + actionQuery + p, { method: "GET" }));
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -154,8 +163,7 @@ export default {
     if (tm) {
       const code = tm[1].toUpperCase();
       const pid = tm[2];
-      const snap = await roomStub(env, code)
-        .fetch(new Request("https://do/?action=state", { method: "GET" }))
+      const snap = await doRpc(roomStub(env, code), new Request("/?action=state", { method: "GET" }))
         .then((r) => r.json())
         .catch(() => null);
       if (!snap || !snap.exists) return reply({ error: "NO_SUCH_ROOM" }, 404);
@@ -186,23 +194,19 @@ export default {
       let code = makeRoomCode();
       /* 极小概率撞号：探测 3 次 */
       for (let i = 0; i < 3; i++) {
-        const snap = await roomStub(env, code).fetch(
-          new Request("https://do/?action=state", { method: "GET" })
+        const snap = await doRpc(roomStub(env, code),
+          new Request("/?action=state", { method: "GET" })
         ).then((r) => r.json()).catch(() => ({ exists: false }));
         if (!snap || !snap.exists) break;
         code = makeRoomCode();
       }
-      const res = await roomStub(env, code).fetch(
-        new Request("https://do/?action=create", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            roomCode: code,
-            internalId: body.internalId,
-            nickname: body.nickname
-          })
-        })
-      );
+      const res = await rpcGet(roomStub(env, code), "create", {
+        roomCode: code,
+        internalId: body.internalId,
+        nickname: body.nickname,
+        /* 房规级未成年模式（ADR 0004）：房主建房配置，选汤拦截在 room.js */
+        minorMode: !!body.minorMode
+      });
       const data = await res.json();
       return reply(Object.assign({ roomCode: code }, data), res.status);
     }
@@ -219,22 +223,14 @@ export default {
       try { body = await request.json(); } catch (e) { body = {}; }
       const code = "S" + makeRoomCode().slice(0, 5);
       const stub = roomStub(env, code);
-      await stub.fetch(new Request("https://do/?action=create", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          roomCode: code,
-          internalId: body.internalId || "solo",
-          nickname: body.nickname || "汤客",
-          solo: true
-        })
-      }));
+      await rpcGet(stub, "create", {
+        roomCode: code,
+        internalId: body.internalId || "solo",
+        nickname: body.nickname || "汤客",
+        solo: true
+      });
       if (body.puzzleId) {
-        await stub.fetch(new Request("https://do/?action=choose", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ internalId: body.internalId || "solo", puzzleId: body.puzzleId })
-        }));
+        await rpcGet(stub, "choose", { internalId: body.internalId || "solo", puzzleId: body.puzzleId });
       }
       return reply({ ok: true, roomCode: code });
     }
@@ -254,12 +250,9 @@ export default {
       const sinceRaw = url.searchParams.get("since") || "";
       const meQ = meRaw ? "&me=" + encodeURIComponent(meRaw) : "";
       const sinceQ = sinceRaw ? "&since=" + encodeURIComponent(sinceRaw) : "";
-      const target = new Request("https://do/?action=" + encodeURIComponent(action) + meQ + sinceQ, {
-        method: request.method === "GET" ? "GET" : "POST",
-        headers: { "content-type": "application/json" },
-        body: request.method === "GET" ? undefined : JSON.stringify(body)
-      });
-      const res = await roomStub(env, code).fetch(target);
+      const res = await rpcGet(roomStub(env, code),
+        encodeURIComponent(action) + meQ + sinceQ,
+        request.method === "GET" ? null : body);
       const text = await res.text();
       return new Response(text, {
         status: res.status,
@@ -282,14 +275,11 @@ export default {
       }
       const meRaw = url.searchParams.get("me") || "";
       const sinceRaw = url.searchParams.get("since") || "";
-      const target = new Request("https://do/?action=" + encodeURIComponent(action) +
+      const res = await rpcGet(roomStub(env, code),
+        encodeURIComponent(action) +
         (meRaw ? "&me=" + encodeURIComponent(meRaw) : "") +
-        (sinceRaw ? "&since=" + encodeURIComponent(sinceRaw) : ""), {
-        method: request.method === "GET" ? "GET" : "POST",
-        headers: { "content-type": "application/json" },
-        body: request.method === "GET" ? undefined : JSON.stringify(body)
-      });
-      const res = await roomStub(env, code).fetch(target);
+        (sinceRaw ? "&since=" + encodeURIComponent(sinceRaw) : ""),
+        request.method === "GET" ? null : body);
       const text = await res.text();
       return new Response(text, {
         status: res.status,

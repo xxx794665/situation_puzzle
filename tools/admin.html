@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<!-- ============================================================
+  深海汤屋 · 题目维护界面（本地工具页）
+  ------------------------------------------------------------
+  用途：复核 / 修改题库标签（七风味 + 语言梗 + 题材），配合
+  tools/flavor_20260929/ 的 AI 判定表做人工复核，改动导出为
+  补丁 JSON，再由 tools/apply_flavor_patch.js 套回母本并重跑构建。
+
+  打开方式（必须走 HTTP，file:// 拉不到判定表）：
+    python -m http.server 8080
+    → http://localhost:8080/tools/admin.html
+
+  流程：筛选 → 改标签 → 「导出补丁」下载 JSON
+        → node tools/apply_flavor_patch.js <补丁文件>
+        → node tools/build_worker_data.js
+  本页纯本地运行，不上传任何数据。
+============================================================ -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>深海汤屋 · 题目维护</title>
+<style>
+  :root { --line:#3a332c; --dim:#9a9083; --bg:#171310; --card:#1f1a15; --on:#7ab280; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:#e8e0d5; font:14px/1.6 system-ui,"Microsoft YaHei",sans-serif; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .sub { color:var(--dim); font-size:12.5px; margin:0 0 14px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; align-items:center; }
+  input[type=search], input[type=text], select {
+    background:var(--card); color:#e8e0d5; border:1px solid var(--line); border-radius:8px; padding:6px 10px; font:inherit;
+  }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+  .chip { border:1px solid var(--line); border-radius:99px; padding:2px 10px; background:none; color:#cfc6b8; cursor:pointer; font:inherit; font-size:12.5px; }
+  .chip.on { border-color:var(--on); color:var(--on); }
+  .stat { color:var(--dim); font-size:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px; }
+  .card h3 { margin:0 0 4px; font-size:14.5px; }
+  .card .meta { color:var(--dim); font-size:11.5px; margin-bottom:6px; }
+  .card .surface { color:#bdb3a4; font-size:12.5px; margin:0 0 8px; max-height:88px; overflow:auto; }
+  .reason { border-left:3px solid var(--line); padding:2px 8px; color:var(--dim); font-size:12px; margin:6px 0; }
+  .flavor-row { display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+  .sep { width:1px; height:14px; background:var(--line); margin:0 3px; }
+  .cats-edit { margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .cats-edit input { font-size:12px; padding:3px 8px; }
+  .foot { position:sticky; bottom:0; background:var(--bg); padding:10px 0; border-top:1px solid var(--line); display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  button.primary { background:#2c4a33; border-color:#3f6b49; color:#bfe6c6; border-radius:8px; padding:6px 14px; cursor:pointer; font:inherit; }
+  button.ghost { background:none; border:1px solid var(--line); color:#cfc6b8; border-radius:8px; padding:6px 12px; cursor:pointer; font:inherit; }
+  .changed { outline:1px solid #d69e2e; }
+  .mark { color:#d69e2e; font-size:11px; }
+</style>
+</head>
+<body>
+<h1>深海汤屋 · 题目维护</h1>
+<p class="sub">复核 AI 判定（左侧灰字为判定理由），直接改标签与题材；改动只存在本页，导出补丁后用脚本回写题库。</p>
+
+<div class="bar">
+  <input type="search" id="kw" placeholder="搜标题 / 汤面 / id" style="flex:1 1 220px" />
+  <select id="layer">
+    <option value="all">两层全部</option>
+    <option value="core">精品 100</option>
+    <option value="lib">汤库</option>
+  </select>
+  <select id="ffilter">
+    <option value="">不限风味</option>
+    <option value="本格">本格</option>
+    <option value="变格">变格</option>
+    <option value="清汤">清汤</option>
+    <option value="红汤">红汤</option>
+    <option value="王八汤">王八汤</option>
+    <option value="黄汤">黄汤</option>
+    <option value="语言梗">语言梗</option>
+    <option value="__none">未打标</option>
+  </select>
+  <span class="stat" id="stat"></span>
+</div>
+
+<div id="list"></div>
+
+<div class="foot">
+  <button type="button" class="primary" id="btn-export">导出补丁 JSON</button>
+  <button type="button" class="ghost" id="btn-more">加载更多</button>
+  <span class="stat" id="dirty"></span>
+</div>
+
+<script src="../js/data.js"></script>
+<script src="../js/data-more.js"></script>
+<script src="../js/library.public.js"></script>
+<script>
+(function () {
+  "use strict";
+  var AXES = [["本格", "变格"], ["清汤", "红汤"]];
+  var OPTIONAL = ["王八汤", "黄汤", "语言梗"];
+  var PAGE = 25;
+  var all = [];
+  (window.PUZZLES || []).forEach(function (p) {
+    all.push({ id: p.id, title: p.title, surface: p.surface, cats: p.cats || [], flavor: (p.flavor || []).slice(), layer: "core", src: "精品" });
+  });
+  (window.SOUP_LIBRARY || []).forEach(function (p) {
+    all.push({ id: p.id, title: p.dispTitle || p.title, surface: p.surface, cats: p.cats || [], flavor: (p.flavor || []).slice(), layer: "lib", src: p.src || "" });
+  });
+
+  /* AI 判定理由（可同源拉到；拉不到就不显示，不影响编辑） */
+  var reasons = {};
+  fetch("../tools/flavor_20260929/flavor_verdicts.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    if (!j || !j.verdicts) return;
+    Object.keys(j.verdicts).forEach(function (id) { reasons[id] = j.verdicts[id].reason || ""; });
+    paint(true);
+  }).catch(function () {});
+
+  var edits = {};   /* id → { flavor, cats } 仅记录与初始不同的改动 */
+  var shown = PAGE;
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function $ (s) { return document.querySelector(s); }
+
+  function filtered() {
+    var kw = $("#kw").value.trim().toLowerCase();
+    var layer = $("#layer").value;
+    var ff = $("#ffilter").value;
+    return all.filter(function (p) {
+      if (layer !== "all" && p.layer !== layer) return false;
+      if (ff === "__none") { if (p.flavor.length) return false; }
+      else if (ff && p.flavor.indexOf(ff) === -1) return false;
+      if (kw) {
+        var hay = (p.id + "\n" + (p.title || "") + "\n" + (p.surface || "")).toLowerCase();
+        if (hay.indexOf(kw) === -1) return false;
+      }
+      return true;
+    });
+  }
+
+  function cardHtml(p) {
+    var fl = p.flavor;
+    var html = '<div class="card" data-id="' + esc(p.id) + '">' +
+      "<h3>" + esc(p.title || p.id) + ' <span class="mark" data-mark></span></h3>' +
+      '<div class="meta">' + esc(p.id) + " · " + (p.layer === "core" ? "精品" : "汤库") + " · " + esc(p.src) + "</div>" +
+      '<p class="surface">' + esc(String(p.surface || "").slice(0, 260)) + (p.surface && p.surface.length > 260 ? "…" : "") + "</p>" +
+      (reasons[p.id] ? '<div class="reason">AI 判定理由：' + esc(reasons[p.id]) + "</div>" : "") +
+      '<div class="flavor-row">';
+    AXES.forEach(function (axis, ai) {
+      if (ai > 0) html += '<span class="sep"></span>';
+      axis.forEach(function (v) {
+        var on = (v === axis[0] ? findAxis(fl, AXES[0]) : findAxis(fl, AXES[1])) === v;
+        html += '<button type="button" class="chip' + (on ? " on" : "") + '" data-axis="' + ai + '" data-val="' + esc(v) + '">' + esc(v) + "</button>";
+      });
+    });
+    html += '<span class="sep"></span>';
+    OPTIONAL.forEach(function (v) {
+      html += '<button type="button" class="chip' + (fl.indexOf(v) !== -1 ? " on" : "") + '" data-axis="opt" data-val="' + esc(v) + '">' + esc(v) + "</button>";
+    });
+    html += "</div>";
+    html += '<div class="cats-edit"><span class="meta">题材（顿号/逗号分隔）：</span>' +
+      '<input type="text" data-cats value="' + esc(p.cats.join("、")) + '" style="flex:1 1 260px" /></div>';
+    return html + "</div>";
+  }
+
+  function findAxis(fl, axis) {
+    for (var i = 0; i < fl.length; i++) if (axis.indexOf(fl[i]) !== -1) return fl[i];
+    return "";
+  }
+
+  var listEl = $("#list");
+
+  function paint(reset) {
+    if (reset) shown = PAGE;
+    var arr = filtered();
+    listEl.innerHTML = arr.slice(0, shown).map(cardHtml).join("");
+    $("#stat").textContent = "命中 " + arr.length + " 题，显示 " + Math.min(shown, arr.length);
+    wire();
+  }
+
+  function wire() {
+    Array.prototype.forEach.call(listEl.querySelectorAll(".card"), function (card) {
+      var id = card.getAttribute("data-id");
+      var p = all.filter(function (x) { return x.id === id; })[0];
+      if (!p) return;
+      Array.prototype.forEach.call(card.querySelectorAll("[data-axis]"), function (btn) {
+        btn.addEventListener("click", function () {
+          var axis = Number(btn.getAttribute("data-axis"));
+          var v = btn.getAttribute("data-val");
+          if (btn.getAttribute("data-axis") === "opt") {
+            var i = p.flavor.indexOf(v);
+            if (i === -1) p.flavor.push(v); else p.flavor.splice(i, 1);
+          } else {
+            var cur = findAxis(p.flavor, AXES[axis]);
+            if (cur === v) {
+              /* 再点一次 = 取消该轴（会失去必选约束，导出前会校验） */
+              p.flavor = p.flavor.filter(function (t) { return AXES[axis].indexOf(t) === -1; });
+            } else {
+              p.flavor = p.flavor.filter(function (t) { return AXES[axis].indexOf(t) === -1; });
+              p.flavor.push(v);
+            }
+          }
+          track(id, p);
+          paint(true);
+        });
+      });
+      var catsInput = card.querySelector("[data-cats]");
+      catsInput.addEventListener("change", function () {
+        p.cats = catsInput.value.split(/[、,，]/).map(function (s) { return s.trim(); }).filter(Boolean);
+        track(id, p);
+      });
+    });
+  }
+
+  function track(id, p) {
+    edits[id] = { flavor: p.flavor.slice(), cats: p.cats.slice() };
+    $("#dirty").textContent = "已改动 " + Object.keys(edits).length + " 题";
+  }
+
+  $("#kw").addEventListener("input", function () { paint(true); });
+  $("#layer").addEventListener("change", function () { paint(true); });
+  $("#ffilter").addEventListener("change", function () { paint(true); });
+  $("#btn-more").addEventListener("click", function () { shown += PAGE; paint(false); });
+
+  $("#btn-export").addEventListener("click", function () {
+    /* 必选约束校验：拦截丢轴的题 */
+    var broken = Object.keys(edits).filter(function (id) {
+      var f = edits[id].flavor;
+      return !(f.indexOf("本格") !== -1 || f.indexOf("变格") !== -1) ||
+             !(f.indexOf("清汤") !== -1 || f.indexOf("红汤") !== -1);
+    });
+    if (broken.length) {
+      if (!confirm("有 " + broken.length + " 题丢了必选互斥项（" + broken.slice(0, 3).join(", ") + " …），仍要导出吗？\n（apply 脚本会拒绝这类补丁）")) return;
+    }
+    var patch = { generatedAt: new Date().toISOString(), patches: edits };
+    var blob = new Blob([JSON.stringify(patch, null, 1)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "flavor_patch_" + new Date().toISOString().slice(0, 10) + ".json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  paint(true);
+})();
+</script>
+</body>
+</html>

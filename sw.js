@@ -5,13 +5,14 @@
  *   - 页面 / 样式 / 脚本 / manifest 走「网络优先」，保证改完就生效
  *   - 图片 / 字体走「缓存优先」，二次访问秒开
  * ============================================================ */
-var CACHE = "deepsea-soup-v18";
+var CACHE = "deepsea-soup-v19";
 var SHELL = [
   "./",
   "index.html",
   "style.css",
   "manifest.webmanifest",
   "assets/vendor/gsap.min.js",
+  "js/config.js",
   "js/data.js",
   "js/library.public.js",
   "js/engine.js",

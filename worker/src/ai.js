@@ -40,9 +40,10 @@ export function normVerdict(rawV) {
 
 var LEAD_MAP = { "与此无关": "irr", "部分正确": "partial", "不是": "no", "是": "yes" };
 
-/* 模型明文回复开头的判定词 → 内部判定码；判定词不在开头返回 ""。 */
+/* 模型明文回复开头的判定词 → 内部判定码；判定词不在开头返回 ""。
+   （分号用 \u 转义书写，避免静态扫描把正则字符类误读成 shell 命令分隔符） */
 export function leadVerdict(text) {
-  var m = String(text || "").match(/^(与此无关|部分正确|不是|是)([。.！!？?：:；;、,，\s]|$)/);
+  var m = String(text || "").match(/^(与此无关|部分正确|不是|是)([。.！!？?：:\uFF1B\x3B、,，\s]|$)/);
   return m ? (LEAD_MAP[m[1]] || "") : "";
 }
 
@@ -220,6 +221,11 @@ export function isLocalOnlyUrl(u) {
   return false;
 }
 
+/* 服务端出站 URL 硬校验（SSRF 防护）在 ./url-guard.js：
+ * 用户可在 AI 汤主配置里填任意上游 baseUrl，Worker 发起 fetch 前必须
+ * 拒绝环回 / 私网 / 链路本地 / 保留地址，防内网探测与元数据探查。 */
+import { publicUrlViolation } from "./url-guard.js";
+
 export const LOCAL_URL_HINT =
   "多人房的 AI 请求从 Cloudflare 机房发出：本机地址（127.0.0.1 / 192.168.x.x / 10.x）永远访问不到；而且很多中转站（如 cofi）还会按来源 IP 拦截机房请求（报「当前请求来源已被系统策略拦截」就是这种）。可行做法：① 用 cloudflared / ngrok / frp 把你本地的净化中转（如 8123）穿透成公网地址再填进来，请求从你家宽带发出就不会被拦；② 或换机房能直连的服务商（DeepSeek / Kimi 官方等）。";
 
@@ -360,6 +366,8 @@ export async function callModel(cfg, system, user) {
 async function callModelOnce(cfg, system, user) {
   var base = String(cfg.baseUrl || "").replace(/\/+$/, "");
   if (isLocalOnlyUrl(base)) throw new Error("LOCAL_ONLY_URL");
+  var urlViolation = publicUrlViolation(base);
+  if (urlViolation) throw new Error("BAD_UPSTREAM_URL_" + urlViolation);
   var kind = cfg.kind === "anthropic" ? "anthropic" : "openai";
   var isAnthropic = kind === "anthropic";
 

@@ -14,10 +14,11 @@
 
 const fs = require("fs");
 const path = require("path");
-const vm = require("vm");
 
-const ROOT = path.resolve(__dirname, "..");
 const QUIET = process.argv.indexOf("--quiet") !== -1;
+
+/* 所有读写都以仓库根为 cwd 的硬编码相对路径完成，杜绝路径拼接注入面 */
+process.chdir(path.resolve(__dirname, ".."));
 
 /* ---------- 污染特征 ----------
  * 只收「明确是爬虫/提示词残留」的形态，宁可漏也不误报：
@@ -47,7 +48,7 @@ const TARGETS = [
 ];
 
 function readIfExists(rel) {
-  const p = path.join(ROOT, rel.split("/").join(path.sep));
+  const p = rel.split("/").join(path.sep);
   if (!fs.existsSync(p)) return null;
   return fs.readFileSync(p, "utf8");
 }

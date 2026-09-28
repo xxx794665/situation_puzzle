@@ -370,7 +370,7 @@
   }
 
   /* 按条件筛出候选池
-   * opts: { cat, difficulty(0/空=全部), excludeIds } */
+   * opts: { cat, difficulty(0/空=全部), excludeIds, flavor(风味筛选), minor(未成年模式) } */
   function pool(opts) {
     var o = opts || {};
     var ex = o.excludeIds || [];
@@ -378,6 +378,7 @@
       if (!hasCat(p, o.cat)) return false;
       if (o.difficulty && p.difficulty !== o.difficulty) return false;
       if (o.hardExclude && ex.indexOf(p.id) !== -1) return false;
+      if (!matchFlavor(p, o.flavor, o.minor)) return false;
       return true;
     });
   }
@@ -436,6 +437,7 @@
       if (o.src && o.src !== "全部" && p.src !== o.src) return false;
       if (o.hasTruth && p.mode !== "truth") return false;
       if (o.lang && p.lang !== o.lang) return false;
+      if (!matchFlavor(p, o.flavor, o.minor)) return false;
       return true;
     });
   }
@@ -450,6 +452,69 @@
     var arr = fresh.length ? fresh : cand;
     return arr[Math.floor(Math.random() * arr.length)] || null;
   }
+
+  /* ---------------- 风味标签（受控词表，见 CONTEXT.md / docs/adr/0001） ---------------- */
+
+  var FLAVOR_AXES = [
+    ["本格", "变格"],   /* 必选互斥：谜底是否含非现实元素 */
+    ["清汤", "红汤"]    /* 必选互斥：是否含死亡 / 血腥 / 恐怖 */
+  ];
+  var FLAVOR_OPTIONAL = ["王八汤", "黄汤", "语言梗"];
+  var FLAVOR_ALL = ["本格", "变格", "清汤", "红汤", "王八汤", "黄汤", "语言梗"];
+
+  /* 未成年模式挡的标签（ADR 0004：隐藏不可解，不留解锁口子） */
+  var MINOR_BLOCKED = ["红汤", "黄汤"];
+
+  function flavorOf(p) {
+    return (p && p.flavor) || [];
+  }
+
+  /* 风味筛选命中（AND 语义）：
+   * sel = { style: "本格"|"变格"|"" , tone: "清汤"|"红汤"|"" , optional: ["王八汤",…] }
+   * 空 = 该轴不限。未成年模式下红汤 / 黄汤题一律出局。
+   * 语言梗题默认禁用（ADR 0002）：未在 optional 里勾选就不入选。 */
+  function matchFlavor(p, sel, minor) {
+    var f = flavorOf(p);
+    var i;
+    if (minor) {
+      for (i = 0; i < MINOR_BLOCKED.length; i++) {
+        if (f.indexOf(MINOR_BLOCKED[i]) !== -1) return false;
+      }
+    }
+    var o = sel || {};
+    if (o.style && f.indexOf(o.style) === -1) return false;
+    if (o.tone && f.indexOf(o.tone) === -1) return false;
+    var opt = o.optional || [];
+    for (i = 0; i < opt.length; i++) {
+      if (f.indexOf(opt[i]) === -1) return false;
+    }
+    if (opt.indexOf("语言梗") === -1 && f.indexOf("语言梗") !== -1) return false;
+    return true;
+  }
+
+  /* ---------------- 近期抽取记录（localStorage 滚动窗口） ---------------- */
+
+  var RECENT_KEY = "soup.recent.v1";
+  var RECENT_MAX = 50;
+
+  function recentList() {
+    try {
+      var raw = root.localStorage && root.localStorage.getItem(RECENT_KEY);
+      var v = raw ? JSON.parse(raw) : [];
+      return Array.isArray(v) ? v.filter(function (x) { return typeof x === "string"; }) : [];
+    } catch (e) { /* 隐私模式：忽略 */ }
+    return [];
+  }
+
+  function recordRecent(id) {
+    if (!id) return;
+    var list = recentList().filter(function (x) { return x !== id; });
+    list.push(id);
+    while (list.length > RECENT_MAX) list.shift();
+    try { root.localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch (e) { /* 忽略 */ }
+  }
+
+  function recentExcludes() { return recentList(); }
 
   var api = {
     normalize: normalize,
@@ -482,6 +547,16 @@
     drawFrom: drawFrom,
     randomFrom: randomFrom,
     poolSize: poolSize,
+    flavorOf: flavorOf,
+    matchFlavor: matchFlavor,
+    FLAVOR_AXES: FLAVOR_AXES,
+    FLAVOR_OPTIONAL: FLAVOR_OPTIONAL,
+    FLAVOR_ALL: FLAVOR_ALL,
+    MINOR_BLOCKED: MINOR_BLOCKED,
+    recentList: recentList,
+    recordRecent: recordRecent,
+    recentExcludes: recentExcludes,
+    RECENT_MAX: RECENT_MAX,
     VERDICT_LEAD: VERDICT_LEAD
   };
 

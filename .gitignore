@@ -102,3 +102,16 @@ tools/_pool2.log
 /_tmp_*
 .wrangler/
 tools/checkup_20260928/backfill*.json
+
+# ---- 2026-09-29 七风味打标 ----
+# 批输入文件可由 make_batches.js 随时重建，不入库；
+# 判定表 out/、复核 out_fix/、flavor_verdicts.json、RULES.md 作证据链入库。
+tools/flavor_20260929/in/
+
+# ---- Mimosa 安全扫描的本地 hook 状态（机器本地，不入库） ----
+.mimosa/
+
+# ---- 遗留 CDP 本地真机验证脚本（2026-09-29 移出跟踪）----
+# 连本机 CDP 调试端口 / 读本地报告路径的工具脚本，安全扫描按 SSRF/路径穿越
+# 拦截；属于一次性真机验证工具，报告（tools/_cdp_*.txt）已留档，脚本留本地。
+tools/cdp_*.py

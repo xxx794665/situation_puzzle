@@ -28,17 +28,8 @@ if (!LIB_SRC_FILE) {
   process.exit(1);
 }
 
-/* 转发给统一构建脚本，保持「一份源、一处逻辑」 */
-const target = path.join(__dirname, "build_worker_data.js");
-const passed = process.argv.slice(2).filter((a) => a === "--check" || a === "--public-only");
-
-if (passed.indexOf("--public-only") === -1) {
-  /* 默认：跑完整构建（服务端 + 前端瘦身） */
-  require(target);
-} else {
-  /* 只重建前端瘦身档 */
-  const { execFileSync } = require("child_process");
-  execFileSync(process.execPath, [target].concat(passed.filter((a) => a === "--check")), {
-    stdio: "inherit"
-  });
-}
+/* 转发给统一构建脚本，保持「一份源、一处逻辑」。
+   历史 --public-only 分支在现行 build_worker_data.js 里本就等价于全量构建
+   （该脚本从不识别 --public-only），因此直接 require 转发，不再起子进程；
+   --check 由 build_worker_data.js 自己从 process.argv 读取。 */
+require("./build_worker_data.js");

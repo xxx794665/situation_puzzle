@@ -124,6 +124,14 @@
           <button type="button" class="btn ghost" id="btn-start-random">随便来一锅</button>
           <button type="button" class="btn ghost hidden" id="btn-resume">继续上一锅</button>
         </div>
+        <!-- 未成年模式（ADR 0004）：开启免密，关闭需密码（js/config.js）。只影响下一次抽题/选汤 -->
+        <div class="minor-row" id="minor-row">
+          <button type="button" class="chip minor-toggle" id="btn-minor" aria-pressed="false">
+            <span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.8 4.8 6.4v5.2c0 4.3 3 7.4 7.2 8.6 4.2-1.2 7.2-4.3 7.2-8.6V6.4z"/><circle cx="12" cy="11" r="1.6"/><path d="M12 12.8v3.2"/></svg></span>
+            <span id="minor-toggle-text">未成年模式</span>
+          </button>
+          <span class="minor-note" id="minor-note">开启后隐藏红汤与黄汤</span>
+        </div>
       </div>
     </div>
 
@@ -135,6 +143,7 @@
             <span class="orig-badge hidden" id="p-orig" hidden></span>
             <span class="tag" id="p-tag"></span>
             <span class="cats-inline" id="p-cats"></span>
+            <span class="cats-inline" id="p-flavor"></span>
             <span class="diff" id="p-diff"></span>
           </div>
         </div>
@@ -176,6 +185,10 @@
           <span class="rand-label">题材</span>
           <div class="chips" id="rand-cats"></div>
         </div>
+        <div class="rand-row" role="group" aria-label="按风味抽取">
+          <span class="rand-label">风味</span>
+          <div class="chips flavor" id="rand-flavor"></div>
+        </div>
         <p class="rand-pool" id="rand-pool">0 道可选</p>
         <div class="rand-actions">
           <button type="button" class="btn primary" id="btn-rand-go">抽一锅</button>
@@ -196,6 +209,8 @@
       <div class="chips" id="lib-diff" role="group" aria-label="按难度筛选"></div>
       <p class="chips-label">来源</p>
       <div class="chips" id="lib-src" role="group" aria-label="按来源筛选"></div>
+      <p class="chips-label">风味</p>
+      <div class="chips flavor" id="lib-flavor" role="group" aria-label="按风味筛选"></div>
       <div class="rand-row">
         <button type="button" class="chip" id="lib-truth-only" aria-pressed="false">只看有汤底</button>
         <button type="button" class="chip" id="lib-en" aria-pressed="false">只看英文</button>
@@ -217,6 +232,10 @@
             <h3>建一间新汤屋</h3>
             <p>你是房主 <b>#1</b>，选汤、配 AI 汤主都由你来。</p>
             <button type="button" class="btn primary" id="btn-room-create">建房</button>
+            <!-- 房规级未成年模式：全房生效，进房玩家会收到提示；服务端拦截红汤/黄汤选汤 -->
+            <div class="room-minor-row">
+              <button type="button" class="chip minor-toggle" id="room-minor-toggle" aria-pressed="false">未成年模式（全房）</button>
+            </div>
           </div>
           <div class="room-card">
             <h3>加入好友的汤屋</h3>
@@ -312,6 +331,17 @@
 
 </main>
 
+<!-- 未成年模式：首访一次性提示（游玩之前弹出）与关闭时的密码门共用这一层，内容由 JS 填充 -->
+<div class="modal-wrap hidden" id="modal-minor">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="minor-title">
+    <h3 id="minor-title">未成年模式</h3>
+    <p class="modal-sub" id="minor-modal-sub"></p>
+    <input type="password" class="input hidden" id="minor-pw-input" placeholder="输入密码" autocomplete="off" />
+    <p class="guess-feedback" id="minor-modal-feedback"></p>
+    <div class="modal-actions" id="minor-modal-actions"></div>
+  </div>
+</div>
+
 <div class="modal-wrap hidden" id="modal-guess">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="guess-title">
     <h3 id="guess-title">说出你的推理</h3>
@@ -402,6 +432,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="assets/vendor/gsap.min.js" defer></script>
+<script src="js/config.js" defer></script>
 <script src="js/data.js" defer></script>
 <!-- 【2026-09-23 策略变更】单人模式改走「本地真汤底」：前端直接加载含 truth 的汤库档，
      让 AI 汤主吃真底判定（旧版是瘦身档，单人玩必然空底瞎编）。

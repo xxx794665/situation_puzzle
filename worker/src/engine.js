@@ -294,6 +294,7 @@ export function publicPuzzle(id) {
     par: p.par,
     difficulty: p.difficulty,
     cats: p.cats,
+    flavor: p.flavor || [],
     original: p.original,
     truthSource: p.truthSource,
     src: p.src,

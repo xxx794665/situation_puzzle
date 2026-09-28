@@ -110,12 +110,14 @@
 
   /* ---------------- 对外动作 ---------------- */
 
-  function createRoom(nickname) {
+  function createRoom(nickname, opts) {
     ensureId();
     state.nickname = String(nickname || "").trim();
     return req("/api/room/new", "POST", {
       internalId: state.internalId,
-      nickname: state.nickname
+      nickname: state.nickname,
+      /* 房规级未成年模式（Q9/Q17）：房主在建房时配置，全房生效 */
+      minorMode: !!(opts && opts.minorMode)
     }).then(function (r) {
       state.roomCode = r.roomCode;
       state.solo = false;

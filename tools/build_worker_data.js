@@ -15,7 +15,6 @@
 
 const fs = require("fs");
 const path = require("path");
-const vm = require("vm");
 
 const ROOT = path.resolve(__dirname, "..");
 const JS = path.join(ROOT, "js");
@@ -23,30 +22,42 @@ const SRC = path.join(ROOT, "worker", "src");
 const CHECK = process.argv.indexOf("--check") !== -1;
 
 /* 汤库源码已在发布瘦身时搬出 js/，只读 data/library/ 母本。
- * 注：旧版 js/library.data.js（1361 条、清洗前）已于 2026-09-26 隔离到 _local_backup/，
- *     不再作为回落源，避免构建静默回退到污染数据。 */
+   注：旧版 js/library.data.js（1361 条、清洗前）已于 2026-09-26 隔离到 _local_backup/，
+   不再作为回落源，避免构建静默回退到污染数据。 */
 const LIB_SRC_FILE = path.join(ROOT, "data", "library", "library.data.js");
 if (!fs.existsSync(LIB_SRC_FILE)) {
   console.error("✗ 找不到汤库母本：data/library/library.data.js");
   process.exit(1);
 }
 
-function loadSandbox(files, baseDir) {
-  const sandbox = { console, Math, JSON, module: { exports: {} } };
-  sandbox.window = sandbox;
-  sandbox.globalThis = sandbox;
-  vm.createContext(sandbox);
-  files.forEach((f) => {
-    const src = fs.readFileSync(path.join(baseDir || JS, f), "utf8");
-    vm.runInContext(src, sandbox, { filename: f });
+/* 从「var X = [ ... ];」形态的题库源文件里切出数组。
+   纯 JSON 解析，不执行任何脚本（Mimosa 安全建议）：题库源文件都是
+   机器生成或单行/整行数组的固定形态，数组本体不含换行顶格的 ]; 与 var。 */
+function sliceArray(file, varName) {
+  const text = fs.readFileSync(file, "utf8");
+  const head = "var " + varName + " = ";
+  const start = text.indexOf(head);
+  if (start === -1) throw new Error("找不到 " + head + "（" + file + "）");
+  const from = start + head.length;
+  /* 数组两种收尾形态：多行数组以「\n];」收（含闭括号），单行数组以下一个
+     顶层语句（var / if）收。取最早的可行终点。 */
+  const ends = [];
+  const br = text.indexOf("\n];", from);
+  if (br !== -1) ends.push(br + 2);
+  ["\nvar ", "\nif "].forEach((a) => {
+    const i = text.indexOf(a, from);
+    if (i !== -1) ends.push(i);
   });
-  return sandbox;
+  const end = ends.length ? Math.min.apply(null, ends) : text.length;
+  return JSON.parse(text.slice(from, end).replace(/[\s;]+$/, ""));
 }
 
 /* ---------------- 精品层 ---------------- */
 
-const core = loadSandbox(["data.js", "data-more.js"]);
-const coreList = core.PUZZLES || [];
+const coreList = [].concat(
+  sliceArray(path.join(JS, "data.js"), "PUZZLES"),
+  sliceArray(path.join(JS, "data-more.js"), "PUZZLES_MORE")
+);
 if (!coreList.length) {
   console.error("✗ 没抽到任何精品题，检查 js/data.js");
   process.exit(1);
@@ -64,6 +75,7 @@ const coreSlim = coreList.map((p) => ({
   par: p.par,
   difficulty: p.difficulty,
   cats: p.cats || [],
+  flavor: p.flavor || [],
   original: !!p.original,
   truthSource: p.truthSource,
   layer: "core"
@@ -71,8 +83,8 @@ const coreSlim = coreList.map((p) => ({
 
 /* ---------------- 汤库层 ---------------- */
 
-const lib = loadSandbox([path.basename(LIB_SRC_FILE)], path.dirname(LIB_SRC_FILE));
-const libList = lib.SOUP_LIBRARY || [];
+const libList = sliceArray(LIB_SRC_FILE, "SOUP_LIBRARY");
+const libCats = sliceArray(LIB_SRC_FILE, "SOUP_LIB_CATS");
 if (!libList.length) {
   console.error("✗ 没抽到任何库题，检查 data/library/library.data.js");
   process.exit(1);
@@ -89,6 +101,7 @@ const libSlim = libList
     surface: p.surface,
     truth: p.truth,
     cats: p.cats || [],
+    flavor: p.flavor || [],
     difficulty: p.difficulty,
     src: p.src,
     truthSource: p.truthSource,
@@ -159,6 +172,7 @@ const libPublic = libList.map((p) => Object.assign({
   clues: p.clues || [],
   hints: p.hints || [],
   cats: p.cats || [],
+  flavor: p.flavor || [],
   difficulty: p.difficulty,
   src: p.src || "",
   lang: p.lang || "",
@@ -190,7 +204,7 @@ emit(
 `,
   "SOUP_LIBRARY",
   libPublic,
-  "\nvar SOUP_LIB_CATS = " + JSON.stringify(lib.SOUP_LIB_CATS || []) + ";\n" +
+  "\nvar SOUP_LIB_CATS = " + JSON.stringify(libCats || []) + ";\n" +
   "var SOUP_LIB_TOTAL = " + libPublic.length + ";\n" +
   "if (typeof module !== \"undefined\" && module.exports) {\n" +
   "  module.exports = { SOUP_LIBRARY: SOUP_LIBRARY, SOUP_LIB_CATS: SOUP_LIB_CATS, SOUP_LIB_TOTAL: SOUP_LIB_TOTAL };\n" +

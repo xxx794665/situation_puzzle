@@ -228,12 +228,15 @@
 
   function createRoom() {
     if (!N || !N.available()) { R.toast("联机服务还没配置好"); return; }
+    var minorBtn = $("#room-minor-toggle");
+    var minorWanted = !!(minorBtn && minorBtn.classList.contains("on"));
     askNickname().then(function (nick) {
       R.toast("正在开一间新汤屋…");
-      return N.createRoom(nick);
+      return N.createRoom(nick, { minorMode: minorWanted });
     }).then(function (snap) {
       showLive();
-      R.toast("汤屋开好了：房间号 " + (snap.roomCode || me().roomCode));
+      R.toast("汤屋开好了：房间号 " + (snap.roomCode || me().roomCode) +
+        (snap.minorMode ? "（本房已启用未成年模式）" : ""));
       startWatch();
     }).catch(function (e) {
       var m = String((e && e.message) || e);
@@ -251,7 +254,9 @@
       return N.joinRoom(code, nick);
     }).then(function (snap) {
       showLive();
-      R.toast("已进入 " + (snap.roomCode || code));
+      /* 房规优先（Q17B）：进房时明确告知本房口径，不拦人 */
+      R.toast("已进入 " + (snap.roomCode || code) +
+        (snap.minorMode ? "（本房已启用未成年模式）" : "（本房未启用未成年模式）"));
       startWatch();
     }).catch(function (e) {
       var m = String((e && e.message) || e);
@@ -1495,9 +1500,9 @@
     var E2 = window.SoupEngine;
     var LIB2 = window.SOUP_LIBRARY || [];
     var PUZ2 = window.PUZZLES || [];
-    var st = { page: 1, kw: "", cat: "全部", difficulty: 0, layer: "all" };
+    var st = { page: 1, kw: "", cat: "全部", difficulty: 0, layer: "all", style: "", tone: "", opt: [] };
     var PAGE = 60;
-    var host = document.createElement("div");
+    host = document.createElement("div");
     host.className = "modal-wrap";
     host.innerHTML =
       '<div class="modal modal-library" role="dialog" aria-modal="true">' +
@@ -1510,6 +1515,7 @@
       "</div>" +
       '<div class="chips cats" id="room-lib-cats" style="margin-bottom:8px"></div>' +
       '<div class="chips" id="room-lib-diffs" style="margin-bottom:10px"></div>' +
+      '<div class="chips flavor" id="room-lib-flavor" style="margin-bottom:10px"></div>' +
       '<input id="pick-kw" class="input" type="search" placeholder="搜索汤名或汤面，例如：电梯" autocomplete="off" />' +
       '<p class="ai-note" id="pick-meta">加载中…</p>' +
       '<div class="room-library" id="pick-list"></div>' +
@@ -1526,7 +1532,22 @@
     var moreBtn = host.querySelector("#pick-more");
     var catEl = host.querySelector("#room-lib-cats");
     var diffEl = host.querySelector("#room-lib-diffs");
+    var flavorEl = host.querySelector("#room-lib-flavor");
     var pool = [];
+
+    /* 房规优先：房间未成年模式由房主建房配置，选汤面板按它过滤（Q17） */
+    function roomMinor() {
+      return !!(R.snap && R.snap.minorMode);
+    }
+
+    function flavorSel2() {
+      var o = { style: st.style, tone: st.tone, optional: st.opt.slice() };
+      if (roomMinor()) {
+        var blocked = (E2 && E2.MINOR_BLOCKED) || ["红汤", "黄汤"];
+        o.optional = o.optional.filter(function (t) { return blocked.indexOf(t) === -1; });
+      }
+      return o;
+    }
 
     function libDiffDots2(d) {
       var n = Number(d);
@@ -1557,6 +1578,7 @@
         if (cs.indexOf(st.cat) === -1) return false;
       }
       if (st.difficulty && p.difficulty !== st.difficulty) return false;
+      if (E2 && !E2.matchFlavor(p, flavorSel2(), roomMinor())) return false;
       return true;
     }
 
@@ -1569,7 +1591,13 @@
       }
       if (st.layer !== "core") {
         var list = E2 ? E2.searchLibrary(LIB2, st.kw) : LIB2;
-        var lib = E2 ? E2.libraryPool(list, { cat: st.cat, difficulty: st.difficulty, hasTruth: false }) : (list || []);
+        var lib = E2 ? E2.libraryPool(list, {
+          cat: st.cat,
+          difficulty: st.difficulty,
+          hasTruth: false,
+          flavor: flavorSel2(),
+          minor: roomMinor()
+        }) : (list || []);
         out = out.concat(lib || []);
       }
       return out;
@@ -1605,6 +1633,46 @@
           st.difficulty = Number(btn.getAttribute("data-diff")) || 0;
           st.page = 1;
           renderDiffs();
+          load(true);
+        });
+      });
+    }
+
+    /* 房主选汤的风味筛选：同一套 chips 逻辑（AND 语义，Q7）；
+       房间未成年模式下红汤 / 黄汤 chip 不渲染（隐藏不可解，ADR 0004） */
+    function renderFlavor() {
+      if (!flavorEl || !E2) return;
+      var minor = roomMinor();
+      var html = "";
+      E2.FLAVOR_AXES.forEach(function (axis, ai) {
+        if (ai > 0) html += '<span class="flavor-sep" aria-hidden="true"></span>';
+        axis.forEach(function (v) {
+          if (minor && E2.MINOR_BLOCKED.indexOf(v) !== -1) return;
+          var on = (v === axis[0] ? st.style : st.tone) === v;
+          html += '<button type="button" class="chip flavor f-' + v + (on ? " on" : "") +
+            '" data-axis="' + (v === axis[0] ? "style" : "tone") + '" data-val="' + esc(v) + '">' + esc(v) + "</button>";
+        });
+      });
+      E2.FLAVOR_OPTIONAL.forEach(function (v) {
+        if (minor && E2.MINOR_BLOCKED.indexOf(v) !== -1) return;
+        var on = st.opt.indexOf(v) !== -1;
+        html += '<button type="button" class="chip flavor f-' + v + (on ? " on" : "") +
+          '" data-axis="optional" data-val="' + esc(v) + '">' + esc(v) + "</button>";
+      });
+      flavorEl.innerHTML = html;
+      Array.prototype.forEach.call(flavorEl.querySelectorAll("[data-axis]"), function (btn) {
+        btn.addEventListener("click", function () {
+          var axis = btn.getAttribute("data-axis");
+          var v = btn.getAttribute("data-val");
+          if (axis === "style") st.style = (st.style === v ? "" : v);
+          else if (axis === "tone") st.tone = (st.tone === v ? "" : v);
+          else {
+            var i = st.opt.indexOf(v);
+            if (i === -1) st.opt.push(v);
+            else st.opt.splice(i, 1);
+          }
+          st.page = 1;
+          renderFlavor();
           load(true);
         });
       });
@@ -1710,17 +1778,21 @@
 
     renderCats();
     renderDiffs();
+    renderFlavor();
     load(true);
     setTimeout(function () { kwEl.focus(); }, 40);
   }
 
-  /* 房主「随机一题」：精品 + 汤库全部可抽，抽到就直接选上，不再只在精品 100 里转 */
+  /* 房主「随机一题」：精品 + 汤库全部可抽，抽到就直接选上，不再只在精品 100 里转。
+     房间未成年模式（房规）挡红汤/黄汤；房主的近期抽取记录在这里写入并避开（Q18）。 */
   function doRoomRandom() {
     var E2 = window.SoupEngine;
     var LIB2 = window.SOUP_LIBRARY || [];
-    var PUZ2 = window.PUZZLES || [];
-    var libAvail = (LIB2.length && E2 && E2.drawFromLibrary) ? E2.drawFromLibrary(LIB2, { hasTruth: false }) : null;
-    var coreAvail = (PUZ2.length && E2 && E2.drawFrom) ? E2.drawFrom(PUZ2) : (PUZ2.length ? PUZ2[Math.floor(Math.random() * PUZ2.length)] : null);
+    var minor = roomMinor();
+    var sel = (E2 && E2.matchFlavor) ? { style: "", tone: "", optional: [] } : null;
+    var ex = (E2 && E2.recentExcludes) ? E2.recentExcludes() : [];
+    var libAvail = (LIB2.length && E2 && E2.drawFromLibrary) ? E2.drawFromLibrary(LIB2, { hasTruth: false, flavor: sel, minor: minor }, ex) : null;
+    var coreAvail = (PUZ2.length && E2 && E2.drawFrom) ? E2.drawFrom(E2.pool({ flavor: sel, minor: minor }), ex) : (PUZ2.length ? PUZ2[Math.floor(Math.random() * PUZ2.length)] : null);
     var libWeight = LIB2.length;
     var coreWeight = PUZ2.length ? Math.max(PUZ2.length, Math.ceil(libWeight / 5)) : 0;
     var total = libWeight + coreWeight;
@@ -1729,6 +1801,7 @@
     else if (Math.random() * total < libWeight) pick = libAvail || coreAvail;
     else pick = coreAvail || libAvail;
     if (!pick || !pick.id) { R.toast("题库还没加载好，稍后再试"); return; }
+    if (E2 && E2.recordRecent) E2.recordRecent(pick.id);
     var btn = $("#btn-room-rand");
     if (btn) btn.disabled = true;
     act("choose", { puzzleId: pick.id }).then(function () {
@@ -2157,6 +2230,13 @@
 
     var c = $("#btn-room-create"); if (c) c.addEventListener("click", createRoom);
     var j = $("#btn-room-join"); if (j) j.addEventListener("click", joinRoom);
+    /* 建房前的房规开关（建房时随 createRoom 上送，ADR 0004） */
+    var rmT = $("#room-minor-toggle");
+    if (rmT) rmT.addEventListener("click", function () {
+      var on = rmT.classList.toggle("on");
+      rmT.setAttribute("aria-pressed", on ? "true" : "false");
+      R.toast(on ? "将建房为未成年模式：全房挡红汤与黄汤" : "将建房为普通模式");
+    });
     var e = $("#btn-room-entry-back"); if (e) e.addEventListener("click", function () {
       showScreen("screen-intro");
       document.body.setAttribute("data-scene", "menu");

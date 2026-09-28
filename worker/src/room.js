@@ -137,10 +137,11 @@ export class Room {
   /* ---------------- 初始化 ---------------- */
 
   /* 建房：房主固定 #1，昵称必填 ≤12 字 */
-  async create({ roomCode, internalId, nickname, solo }) {
+  async create({ roomCode, internalId, nickname, solo, minorMode }) {
     this.state = {
       roomCode,
       solo: !!solo,                 /* 单人模式：无轮序、无准备，选完汤直接开问 */
+      minorMode: !!minorMode,       /* 房规级未成年模式（ADR 0004）：全房生效，挡红汤/黄汤 */
       phase: "lobby",              /* lobby | playing | revealed */
       hostUid: 1,
       nextUid: 1,
@@ -682,7 +683,16 @@ export class Room {
     const s = this.state;
     const p = s.players.filter((x) => x.internalId === internalId)[0];
     if (!p || !p.isHost) return { error: "ONLY_HOST" };
-    if (!getPuzzle(puzzleId)) return { error: "NO_SUCH_PUZZLE" };
+    const pz = getPuzzle(puzzleId);
+    if (!pz) return { error: "NO_SUCH_PUZZLE" };
+    /* 房规级未成年模式（ADR 0004）：服务端硬拦红汤/黄汤，
+       不依赖房主前端是否守规矩。被挡题在房主选汤面板本就隐藏。 */
+    if (s.minorMode) {
+      const f = pz.flavor || [];
+      if (f.indexOf("红汤") !== -1 || f.indexOf("黄汤") !== -1) {
+        return { error: "MINOR_BLOCKED", note: "本房已启用未成年模式，这锅红汤/黄汤选不了。" };
+      }
+    }
     s.puzzleId = puzzleId;
     /* 单人：选完汤立刻可问，不需要「准备」这一环 */
     if (s.solo) {
@@ -1132,6 +1142,8 @@ export class Room {
       rev: s.rev || 0,
       roomCode: s.roomCode,
       solo: !!s.solo,
+      /* 房规级未成年模式：进房提示与选汤过滤都按它（Q17，房规优先） */
+      minorMode: !!s.minorMode,
       youUid: you ? you.uid : 0,
       /* 第⑩条：席位号同步下发（= players 排序后的下标 + 1） */
       youSeat: you ? (s.players.indexOf(you) + 1) : 0,
@@ -1257,6 +1269,10 @@ export class Room {
     let body = {};
     if (request.method === "POST") {
       try { body = await request.json(); } catch (e) { body = {}; }
+    } else if (url.searchParams.get("p")) {
+      /* 内部 RPC 的 GET 形态：载荷经 ?p=<encodeURIComponent(JSON)> 透传
+         （Worker→DO 的动作转发用 GET，内部调用载荷都很小） */
+      try { body = JSON.parse(url.searchParams.get("p")); } catch (e) { body = {}; }
     }
     /* 「我是谁」：轮询带 ?me=internalId，动作带 body.internalId */
     const meId = url.searchParams.get("me") || body.internalId || "";

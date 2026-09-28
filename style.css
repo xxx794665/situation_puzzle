@@ -2579,3 +2579,83 @@ body.my-turn .askbar { border-color: var(--yes); box-shadow: 0 0 18px rgba(104, 
 
   /* AI 状态点 / 等待中的省略号：opacity 动画便宜，保留 */
 }
+
+/* ============================================================
+ * 风味标签 / 未成年模式（2026-09-29）
+ * ============================================================ */
+
+/* 风味 chips：互斥两组 + 可选项，chips.flavor 行内排布 */
+.chips.flavor { align-items: center; }
+.flavor-sep {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--line);
+  flex: 0 0 auto;
+}
+.chip.flavor { font-variant-numeric: tabular-nums; }
+.chip.flavor.f-红汤 { border-style: dashed; }
+.chip.flavor.f-红汤.on { border-style: solid; border-color: rgba(224, 122, 95, .8); color: #e07a5f; background: rgba(224, 122, 95, .1); }
+.chip.flavor.f-清汤.on { border-color: rgba(122, 178, 128, .7); color: #7ab280; background: rgba(122, 178, 128, .08); }
+.chip.flavor.f-本格.on, .chip.flavor.f-变格.on { border-color: var(--line-2); }
+.chip.flavor.f-王八汤 { border-style: dashed; }
+.chip.flavor.f-王八汤.on { border-style: solid; border-color: rgba(255, 209, 102, .7); color: var(--gold, #ffd166); }
+.chip.flavor.f-黄汤 { border-style: dashed; }
+.chip.flavor.f-黄汤.on { border-style: solid; border-color: rgba(214, 158, 46, .75); color: #d69e2e; }
+.chip.flavor.f-语言梗 { border-style: dotted; }
+.chip.flavor.f-语言梗.on { border-style: solid; }
+
+/* 汤库卡片 / 汤面 meta 的风味徽章 */
+.fbadges { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 0 0; }
+.fbadge {
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  padding: 1px 7px 2px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  color: var(--dim-2);
+  white-space: nowrap;
+}
+.fbadge.fb-红汤 { border-color: rgba(224, 122, 95, .55); color: #e07a5f; }
+.fbadge.fb-清汤 { border-color: rgba(122, 178, 128, .5); color: #7ab280; }
+.fbadge.fb-变格 { border-color: var(--line-2); color: var(--broth-dim); }
+.fbadge.fb-王八汤 { border-color: rgba(255, 209, 102, .5); color: var(--gold, #ffd166); }
+.fbadge.fb-黄汤 { border-color: rgba(214, 158, 46, .55); color: #d69e2e; }
+.fbadge.fb-语言梗 { border-style: dotted; }
+
+/* 首页未成年模式开关行 */
+.minor-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.minor-row .minor-toggle .ic { margin-right: 5px; }
+.minor-toggle .ic svg { width: 15px; height: 15px; vertical-align: -2px; }
+.chip.minor-toggle {
+  display: inline-flex;
+  align-items: center;
+  border-style: dashed;
+}
+.chip.minor-toggle.on {
+  border-style: solid;
+  border-color: rgba(122, 178, 128, .75);
+  color: #7ab280;
+  background: rgba(122, 178, 128, .08);
+}
+.minor-note { font-size: 12px; color: var(--dim-2); }
+
+/* 建房卡片的房规开关 */
+.room-minor-row { margin-top: 10px; display: flex; justify-content: flex-start; }
+
+/* 未成年弹层的密码输入复用 .input；错误文案复用 .guess-feedback 的红色 */
+#minor-modal-feedback { min-height: 1em; }
+
+/* 手机档：风味行不被撑爆 */
+@media (max-width: 860px) {
+  .flavor-sep { height: 14px; margin: 0 2px; }
+  .fbadge { font-size: 10px; padding: 1px 6px 2px; }
+}

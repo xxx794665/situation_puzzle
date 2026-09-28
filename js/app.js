@@ -74,6 +74,141 @@
     return next;
   }
 
+  /* ---------------- 未成年模式（ADR 0004） ----------------
+   * 挡红汤 + 黄汤，被挡标签隐藏不可解。开启免密；关闭需输入
+   * js/config.js 里的 MINOR_MODE_PASSWORD。首次进站在游玩前
+   * 弹一次性提示（soup.minor.v1.prompted 记录已提示过）。
+   * 生效时机：只影响下一次抽题 / 选汤，当前锅不中断。 */
+  var MINOR_KEY = "soup.minor.v1";
+
+  function minorStore() {
+    try {
+      var raw = localStorage.getItem(MINOR_KEY);
+      var v = raw ? JSON.parse(raw) : null;
+      if (v && typeof v === "object") return v;
+    } catch (e) { /* 隐私模式：忽略 */ }
+    return {};
+  }
+
+  function minorSave(v) {
+    try { localStorage.setItem(MINOR_KEY, JSON.stringify(v)); } catch (e) { /* 忽略 */ }
+  }
+
+  function minorOn() {
+    return !!minorStore().on;
+  }
+
+  function setMinor(on, opts) {
+    var v = minorStore();
+    v.on = !!on;
+    v.prompted = true;
+    minorSave(v);
+    if (!opts || !opts.silent) {
+      toast(on ? "未成年模式已开启：红汤与黄汤已隐藏" : "未成年模式已关闭");
+      renderMinorToggle();
+      renderRandom();
+      renderLibraryFilters();
+      renderLibrary();
+    }
+  }
+
+  /* 未成年模式下的风味筛选项（隐藏被挡标签，选中的被挡标签一并清掉） */
+  function minorVisibleOpt(opt) {
+    var blocked = E.MINOR_BLOCKED;
+    return (opt || []).filter(function (t) { return blocked.indexOf(t) === -1; });
+  }
+
+  /* 风味筛选当前选择 → 引擎 sel 对象 */
+  function flavorSel(style, tone, opt) {
+    return { style: style || "", tone: tone || "", optional: minorOn() ? minorVisibleOpt(opt) : (opt || []) };
+  }
+
+  /* ---------------- 未成年模式 UI ---------------- */
+
+  function minorPassword() {
+    var cfg = root.SoupConfig || {};
+    return String(cfg.MINOR_MODE_PASSWORD || "");
+  }
+
+  function renderMinorToggle() {
+    var btn = $("#btn-minor");
+    if (!btn) return;
+    var on = minorOn();
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.classList.toggle("on", on);
+    var txt = $("#minor-toggle-text");
+    if (txt) txt.textContent = on ? "未成年模式 · 已开启" : "未成年模式";
+    var note = $("#minor-note");
+    if (note) note.textContent = on ? "红汤与黄汤已隐藏（关闭需密码）" : "开启后隐藏红汤与黄汤";
+  }
+
+  /* 弹层内容按需拼装：首访提示（游玩之前）或关闭时的密码门 */
+  function minorModal(opts) {
+    var wrap = $("#modal-minor");
+    if (!wrap) { if (opts && opts.onClose) opts.onClose(); return; }
+    var sub = $("#minor-modal-sub");
+    var pw = $("#minor-pw-input");
+    var fb = $("#minor-modal-feedback");
+    var acts = $("#minor-modal-actions");
+    if (!sub || !acts) return;
+    fb.textContent = "";
+    sub.innerHTML = opts.sub || "";
+    pw.classList.toggle("hidden", !opts.password);
+    pw.value = "";
+    acts.innerHTML = (opts.actions || []).map(function (a) {
+      return '<button type="button" class="btn ' + (a.primary ? "primary" : "ghost") + '" data-ma="' + a.key + '">' + esc(a.label) + "</button>";
+    }).join("");
+    $$("#minor-modal-actions [data-ma]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var key = b.dataset.ma;
+        var act = (opts.actions || []).filter(function (a) { return a.key === key; })[0];
+        if (!act) return;
+        if (act.needsPw) {
+          if (pw.value === minorPassword()) {
+            wrap.classList.add("hidden");
+            act.onClick();
+          } else {
+            fb.textContent = "密码不对。密码在 js/config.js 里，忘了可以翻开看。";
+          }
+          return;
+        }
+        wrap.classList.add("hidden");
+        act.onClick();
+      });
+    });
+    wrap.classList.remove("hidden");
+    if (opts.password && pw) setTimeout(function () { pw.focus(); }, 60);
+    sfx("ui");
+  }
+
+  /* 首访（无提示状态变量）在游玩之前问一次要不要开启 */
+  function maybeMinorPrompt() {
+    var v = minorStore();
+    if (v.prompted) return;
+    minorModal({
+      sub: "这里的部分谜题含恐怖、死亡或成人内容。<br />如果这锅汤是给未成年人熬的，建议开启过滤——<b>红汤与黄汤将被隐藏</b>，之后随时可以在这里关闭。",
+      actions: [
+        { key: "on", label: "开启过滤", primary: true, onClick: function () { setMinor(true); } },
+        { key: "off", label: "暂不开启", onClick: function () { setMinor(false, { silent: true }); } }
+      ]
+    });
+  }
+
+  function toggleMinorFromIntro() {
+    if (!minorOn()) {
+      setMinor(true);
+      return;
+    }
+    minorModal({
+      sub: "关闭后，红汤与黄汤题将重新出现在抽题与汤库里。",
+      password: true,
+      actions: [
+        { key: "cancel", label: "先不动", onClick: function () {} },
+        { key: "off", label: "输入密码并关闭", primary: true, needsPw: true, onClick: function () { setMinor(false); } }
+      ]
+    });
+  }
+
   /* 场景 → 背景图 / 特效场景 / 曲目 */
   var BG = {
     menu: "assets/bg-castle.webp",
@@ -93,6 +228,9 @@
     done: false,
     randCat: "全部",
     randDiff: 0,
+    randStyle: "",
+    randTone: "",
+    randOpt: [],
     history: [],
     aiBusy: false,
     sound: true,
@@ -120,6 +258,7 @@
       dispTitle: p.title || p.id,
       surface: p.surface || "",
       cats: p.cats || [],
+      flavor: p.flavor || [],
       difficulty: p.difficulty,
       src: CORE_SRC,
       lang: "zh",
@@ -154,7 +293,10 @@
     difficulty: 0,
     src: "全部",
     hasTruth: false,
-    en: false
+    en: false,
+    style: "",
+    tone: "",
+    opt: []
   };
 
   function libPuzzle(id) {
@@ -651,6 +793,17 @@
         var pcats = $("#p-cats");
         if (pcats) { pcats.innerHTML = ""; pcats.classList.add("hidden"); }
         set("#p-diff", new Array(p.difficulty + 1).join("●") + new Array(3 - p.difficulty + 1).join("○") + " 难度");
+      }
+      /* 风味标签上汤面 meta 行（未成年模式下不显示被挡标签） */
+      var pflavor = $("#p-flavor");
+      if (pflavor) {
+        var fs = E.flavorOf(p).filter(function (t) {
+          return !(minorOn() && E.MINOR_BLOCKED.indexOf(t) !== -1);
+        });
+        pflavor.innerHTML = fs.map(function (t) {
+          return '<span class="pz-cat fb-' + t + '">' + esc(t) + "</span>";
+        }).join("");
+        pflavor.classList.toggle("hidden", !fs.length);
       }
       typeSurface(p.surface);
 
@@ -1421,11 +1574,15 @@
   function randOpts() {
     return {
       cat: state.randCat,
-      difficulty: state.randDiff
+      difficulty: state.randDiff,
+      flavor: flavorSel(state.randStyle, state.randTone, state.randOpt),
+      minor: minorOn()
     };
   }
 
-  /* 阶段 1：跨局「最近抽过」记录已砍，随机抽题不再排除历史 */
+  /* 阶段 1：跨局「最近抽过」记录已砍，随机抽题不再排除历史
+     —— 2026-09-29 又请回来了：近 50 题滚动记录（soup.recent.v1），
+     单人三个随机入口互相避开，池子筛空自动放宽（见 engine.js）。 */
 
   function renderRandom() {
     var dbox = $("#rand-diff");
@@ -1459,7 +1616,18 @@
       });
     }
 
-    var total = E.poolSize({ cat: state.randCat, difficulty: state.randDiff });
+    renderFlavorChips($("#rand-flavor"), {
+      style: state.randStyle,
+      tone: state.randTone,
+      optional: state.randOpt
+    }, function (next) {
+      state.randStyle = next.style;
+      state.randTone = next.tone;
+      state.randOpt = next.optional;
+      renderRandom();
+    });
+
+    var total = E.poolSize({ cat: state.randCat, difficulty: state.randDiff, flavor: randOpts().flavor, minor: minorOn() });
     var poolEl = $("#rand-pool");
     if (poolEl) {
       poolEl.textContent = total === 0
@@ -1468,6 +1636,53 @@
     }
     var go = $("#btn-rand-go");
     if (go) go.disabled = total === 0;
+  }
+
+  /* ---------------- 风味筛选 chips（随机模式 / 汤库共用） ----------------
+   * 两组互斥项（本格/变格、清汤/红汤）做成单选，三个可选项做开关；
+   * AND 语义，不选 = 不限。未成年模式下红汤 / 黄汤 chip 不渲染（隐藏不可解）。
+   * onChange(sel) 回传 { style, tone, optional }。 */
+  function renderFlavorChips(box, sel, onChange) {
+    if (!box) return;
+    var minor = minorOn();
+    var html = "";
+    E.FLAVOR_AXES.forEach(function (axis, ai) {
+      if (ai > 0) html += '<span class="flavor-sep" aria-hidden="true"></span>';
+      axis.forEach(function (v) {
+        if (minor && E.MINOR_BLOCKED.indexOf(v) !== -1) return;
+        var on = (v === axis[0] ? sel.style : sel.tone) === v;
+        html += '<button type="button" class="chip flavor f-' + v + (on ? " on" : "") +
+          '" data-axis="' + (v === axis[0] ? "style" : "tone") + '" data-val="' + esc(v) + '"' +
+          ' aria-pressed="' + (on ? "true" : "false") + '">' + esc(v) + "</button>";
+      });
+    });
+    var anyOpt = E.FLAVOR_OPTIONAL.filter(function (v) {
+      return !(minor && E.MINOR_BLOCKED.indexOf(v) !== -1);
+    });
+    if (anyOpt.length) html += '<span class="flavor-sep" aria-hidden="true"></span>';
+    E.FLAVOR_OPTIONAL.forEach(function (v) {
+      if (minor && E.MINOR_BLOCKED.indexOf(v) !== -1) return;
+      var on = (sel.optional || []).indexOf(v) !== -1;
+      html += '<button type="button" class="chip flavor f-' + v + (on ? " on" : "") +
+        '" data-axis="optional" data-val="' + esc(v) + '"' +
+        ' aria-pressed="' + (on ? "true" : "false") + '">' + esc(v) + "</button>";
+    });
+    box.innerHTML = html;
+    $$(".chip.flavor", box).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var axis = btn.dataset.axis;
+        var v = btn.dataset.val;
+        if (axis === "style") sel.style = (sel.style === v ? "" : v);
+        else if (axis === "tone") sel.tone = (sel.tone === v ? "" : v);
+        else {
+          var i = (sel.optional = sel.optional || []).indexOf(v);
+          if (i === -1) sel.optional.push(v);
+          else sel.optional.splice(i, 1);
+        }
+        sfx("ui");
+        onChange(sel);
+      });
+    });
   }
 
   /* 从「多人汤屋」切走时：收起房间面板 + 停掉房间轮询 + 藏右下角聊天，
@@ -1503,21 +1718,27 @@
   }
 
   function drawRandom() {
-    var p = E.randomFrom(randOpts());
+    var p = E.randomFrom(randOpts(), E.recentExcludes());
     if (!p) { toast("这个条件下暂时没有可抽的汤，放宽一点试试"); return; }
+    E.recordRecent(p.id);
     toast("抽到：" + p.title);
     loadPuzzle(p.id);
   }
 
   /* 首页/顶栏「随机一题」：精品 + 汤库全部可抽，不再只在精品 100 里转。
-     库题走本地真汤底。按体量加权：库大就更容易抽到库题，但精品至少占 1/6。 */
+     库题走本地真汤底。按体量加权：库大就更容易抽到库题，但精品至少占 1/6。
+     未成年模式与风味筛选（默认不限）在这里同样生效；近期抽过的题优先避开。
+     无筛选的随机入口不选语言梗题（默认禁用，见 ADR 0002）。 */
   function randomAnywhere() {
+    var sel = flavorSel("", "", []);
+    var minor = minorOn();
+    var ex = E.recentExcludes();
     var libList = (typeof LIB !== "undefined" && LIB && LIB.length) ? LIB : [];
-    var coreList = (typeof PUZZLES !== "undefined" && PUZZLES && PUZZLES.length) ? PUZZLES : [];
-    var libAvail = libList.length ? E.drawFromLibrary(libList, { hasTruth: true }) : null;
-    var coreAvail = coreList.length ? E.drawFrom(coreList) : null;
+    var corePool = E.pool({ flavor: sel, minor: minor });
+    var libAvail = libList.length ? E.drawFromLibrary(libList, { hasTruth: true, flavor: sel, minor: minor }, ex) : null;
+    var coreAvail = corePool.length ? E.drawFrom(corePool, ex) : null;
     var libWeight = libList.length;
-    var coreWeight = coreList.length ? Math.max(coreList.length, Math.ceil(libWeight / 5)) : 0;
+    var coreWeight = corePool.length ? Math.max(corePool.length, Math.ceil(libWeight / 5)) : 0;
     var total = libWeight + coreWeight;
     if (total <= 0) return coreAvail || libAvail;
     var roll = Math.random() * total;
@@ -1556,8 +1777,22 @@
       difficulty: libState.difficulty,
       src: libState.src,
       hasTruth: libState.hasTruth,
-      lang: libState.en ? "en" : ""
+      lang: libState.en ? "en" : "",
+      flavor: flavorSel(libState.style, libState.tone, libState.opt),
+      minor: minorOn()
     });
+  }
+
+  /* 汤库卡片上的风味徽章（紧凑一行，语言梗带角标样式） */
+  function flavorBadges(p) {
+    var f = E.flavorOf(p);
+    if (!f.length) return "";
+    var minor = minorOn();
+    var parts = f.map(function (t) {
+      if (minor && E.MINOR_BLOCKED.indexOf(t) !== -1) return "";
+      return '<span class="fbadge fb-' + t + '">' + esc(t) + "</span>";
+    });
+    return parts.join("") ? '<div class="fbadges">' + parts.join("") + "</div>" : "";
   }
 
   function libSrcList() {
@@ -1623,6 +1858,19 @@
         });
       });
     }
+
+    renderFlavorChips($("#lib-flavor"), {
+      style: libState.style,
+      tone: libState.tone,
+      optional: libState.opt
+    }, function (next) {
+      libState.style = next.style;
+      libState.tone = next.tone;
+      libState.opt = next.optional;
+      libState.page = 1;
+      renderLibraryFilters();
+      renderLibrary();
+    });
   }
 
   /* 分页渲染：1374 条全量 innerHTML 会把移动端拖卡，必须切片 */
@@ -1651,6 +1899,7 @@
           '<div class="pz-cats">' + (p.cats || []).map(function (c) {
             return '<span class="pz-cat">' + esc(c) + "</span>";
           }).join("") + "</div>" +
+          flavorBadges(p) +
           "</button>";
       }).join("");
       /* 小绿勾：拦截冒泡，只做标记，不进汤 */
@@ -1713,17 +1962,24 @@
     if (resumeBtn) resumeBtn.addEventListener("click", resumeSession);
 
     var randBtn = $("#btn-start-random");
-    if (randBtn) randBtn.addEventListener("click", function () { var r = randomAnywhere(); if (r) loadPuzzle(r.id); });
+    if (randBtn) randBtn.addEventListener("click", function () {
+      var r = randomAnywhere();
+      if (r) { E.recordRecent(r.id); loadPuzzle(r.id); }
+    });
 
     var topRand = $("#btn-random");
     if (topRand) topRand.addEventListener("click", function () {
       var r = randomAnywhere();
-      if (r) { loadPuzzle(r.id); toast("随机一锅：" + (r.dispTitle || r.title)); }
+      if (r) { E.recordRecent(r.id); loadPuzzle(r.id); toast("随机一锅：" + (r.dispTitle || r.title)); }
     });
 
     /* 随机模式：按题材 / 火候 / 是否熬过 抽题 */
     var rmBtn = $("#btn-random-mode");
     if (rmBtn) rmBtn.addEventListener("click", openRandom);
+
+    /* 未成年模式：首页开关（开启免密 / 关闭走密码门，ADR 0004） */
+    var minorBtn = $("#btn-minor");
+    if (minorBtn) minorBtn.addEventListener("click", toggleMinorFromIntro);
 
     var rGo = $("#btn-rand-go");
     if (rGo) rGo.addEventListener("click", drawRandom);
@@ -2031,10 +2287,13 @@
 
     renderQaLog();
     renderRandom();
+    renderMinorToggle();
     paintAiBar();
     paintResume();
     bind();
     setScene("menu");
+    /* 未成年模式首访提示：在游玩之前问一次（Q15），答完记状态不再打扰 */
+    maybeMinorPrompt();
 
     /* 预热：只拉首屏要用的两张背景，其余等切场景时按需加载（少下 600KB+） */
     ["menu", "game"].forEach(function (k) {
@@ -2061,6 +2320,8 @@
     pid: function () { return state.pid; },
     /* 「已熬出汤底」标记：供多人选汤面板复用同一份本地记录 */
     isSolved: isSolved,
-    toggleSolved: toggleSolved
+    toggleSolved: toggleSolved,
+    /* 未成年模式：供房间层读本地状态（进房提示用，房规优先见 room-ui） */
+    minorOn: minorOn
   };
 })(window);
