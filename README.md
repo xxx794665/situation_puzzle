@@ -316,8 +316,8 @@ npx wrangler deploy
 
 允许的前端来源：
 
-- `https://xxx794665.github.io`（本仓库 Pages）
-- `https://xiao-xiao6.github.io`（旧站，仍放行）
+- `https://xxx794665.github.io`（本仓库 Pages 默认域）
+- `https://demo.xxx794665.party`（本仓库 Pages 自定义域）
 - `http://localhost:8080` 与 `http://127.0.0.1:8080`
 - `http://localhost:5500`、`4173` 及其 `127.0.0.1` 写法
 
