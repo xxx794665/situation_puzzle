@@ -2066,14 +2066,33 @@
     var compactBar = null;
     var tbH = 90;
     var lastStuck = false;
+    /* 面板开合统一入口：buildCompactBar 里赋值；updateStuck 收条时也要用 */
+    var compactSetOpen = function () {};
 
-    /* 克隆大顶栏的导航按钮（跳过音乐台——吸顶态本来就不显示它）；
-       克隆体不带 id，点击转发给原按钮，让原有绑定/音效/状态逻辑原样生效 */
     function buildCompactBar() {
       if (!topbarEl || compactBar) return;
       compactBar = document.createElement("header");
       compactBar.className = "topbar-compact";
       compactBar.setAttribute("aria-label", "吸顶导航");
+
+      /* 左上：APP 名（移动端收拢横条的主体；桌面隐藏） */
+      var brand = document.createElement("div");
+      brand.className = "tc-brand";
+      brand.innerHTML = ic("pot") + '<span class="tc-brand-name">深海汤屋</span>';
+
+      /* 右上：配置钮（移动端展开/收起导航面板；桌面隐藏） */
+      var toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "btn ghost tc-toggle";
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.setAttribute("aria-label", "展开导航");
+      toggle.innerHTML = ic("sliders");
+
+      /* 导航按钮：克隆自大顶栏（跳过音乐台——吸顶态本来就不显示它）。
+         克隆体不带 id，点击转发给原按钮，原有绑定/音效/状态逻辑原样生效；
+         桌面=平铺一行（与旧版吸顶条一致），移动端=折叠进 .tc-nav 面板 */
+      var nav = document.createElement("nav");
+      nav.className = "tc-nav";
       var actions = topbarEl.querySelector(".top-actions");
       var kids = actions ? actions.children : [];
       for (var i = 0; i < kids.length; i++) {
@@ -2082,15 +2101,39 @@
         var b = src.cloneNode(true);
         b.removeAttribute("id");
         b.dataset.act = src.id;
-        compactBar.appendChild(b);
+        nav.appendChild(b);
       }
+      compactBar.appendChild(brand);
+      compactBar.appendChild(toggle);
+      compactBar.appendChild(nav);
+      document.body.appendChild(compactBar);
+
+      compactSetOpen = function (on) {
+        compactBar.classList.toggle("tc-open", !!on);
+        toggle.setAttribute("aria-expanded", on ? "true" : "false");
+        toggle.setAttribute("aria-label", on ? "收起导航" : "展开导航");
+        toggle.innerHTML = ic(on ? "close" : "sliders");
+      };
+
+      toggle.addEventListener("click", function () {
+        compactSetOpen(!compactBar.classList.contains("tc-open"));
+        sfx("ui");
+      });
+
       compactBar.addEventListener("click", function (ev) {
         var t = ev.target && ev.target.closest ? ev.target.closest("[data-act]") : null;
         if (!t || !t.dataset.act) return;
         var real = document.getElementById(t.dataset.act);
         if (real) real.click();
+        compactSetOpen(false); /* 点完导航项顺手收起面板 */
       });
-      document.body.appendChild(compactBar);
+      /* 点面板外任意处收起（toggle 自身在条内，closest 会放行） */
+      document.addEventListener("click", function (ev) {
+        if (!compactBar.classList.contains("tc-open")) return;
+        if (ev.target && ev.target.closest && ev.target.closest(".topbar-compact")) return;
+        compactSetOpen(false);
+      });
+
       syncCompact();
       /* 原按钮的文案/按压态变化（AI 汤主开关、音乐/音效/特效切换）同步到紧凑条；
          只观察大顶栏子树，syncCompact 写的是紧凑条，不会自触发成死循环 */
@@ -2103,8 +2146,10 @@
 
     function syncCompact() {
       if (!compactBar || !topbarEl) return;
+      var navEl = compactBar.querySelector(".tc-nav");
+      if (!navEl) return;
       var src = topbarEl.querySelectorAll(".top-actions > .btn[id]");
-      var dst = compactBar.children;
+      var dst = navEl.children;
       for (var i = 0; i < src.length && i < dst.length; i++) {
         if (dst[i].dataset.act !== src[i].id) continue;
         if (dst[i].innerHTML !== src[i].innerHTML) dst[i].innerHTML = src[i].innerHTML;
@@ -2127,6 +2172,8 @@
       if (s !== lastStuck) {
         lastStuck = s;
         document.body.classList.toggle("topbar-stuck", s);
+        /* 吸顶条退场时，展开中的导航面板一并收起 */
+        if (!s) compactSetOpen(false);
       }
     }
 

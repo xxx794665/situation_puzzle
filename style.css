@@ -122,7 +122,8 @@ body {
 }
 
 /* 吸顶紧凑条：position:fixed 覆盖层，出现/消失零布局位移。
-   内容由 app.js 克隆大顶栏按钮生成（不带 id，点击转发给原按钮），
+   内容由 app.js 生成：桌面=一行全量导航（与旧版吸顶条一致）；
+   移动端=收拢成一横条（左上 APP 名 + 右上配置钮），点配置钮展开导航面板。
    按压态/文案经 MutationObserver 与原按钮保持同步。 */
 .topbar-compact {
   position: fixed;
@@ -148,6 +149,43 @@ body.topbar-stuck .topbar-compact {
   transform: translateY(0);
   opacity: 1;
   pointer-events: auto;
+}
+
+/* 桌面（>860px）：品牌与配置钮隐藏，导航平铺一行 */
+.tc-brand, .tc-toggle { display: none; }
+.tc-brand { align-items: center; gap: 8px; margin-right: auto; }
+.tc-brand .ic { font-size: 20px; color: var(--broth-2); filter: drop-shadow(0 0 10px rgba(226, 164, 79, .4)); }
+.tc-brand-name {
+  font-family: var(--serif);
+  font-size: 16px;
+  letter-spacing: .14em;
+  color: var(--broth-2);
+  text-shadow: 0 0 14px rgba(226, 164, 79, .25);
+  white-space: nowrap;
+}
+.tc-toggle .ic { font-size: 18px; }
+.tc-nav { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* 移动端（≤860px）：默认收成一横条；导航面板默认收起（max-height 0），
+   容器 gap 归零、展开靠 margin-top，收起态严格零高度 */
+@media (max-width: 860px) {
+  .topbar-compact { gap: 0; padding-bottom: 6px; }
+  .tc-brand, .tc-toggle { display: flex; }
+  .tc-toggle { padding: 7px 10px; }
+  .tc-nav {
+    flex-basis: 100%;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    margin-top: 0;
+    transition: max-height .26s ease, opacity .2s ease, margin-top .26s ease;
+  }
+  .topbar-compact.tc-open .tc-nav {
+    max-height: 320px;
+    opacity: 1;
+    margin-top: 8px;
+    padding-bottom: 2px;
+  }
 }
 
 .brand { display: flex; align-items: center; gap: 12px; }

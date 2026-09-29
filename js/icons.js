@@ -30,6 +30,12 @@
     /* 汤库：三本书 */
     books: s('<path d="M5 5.5h3.8v14H5z"/><path d="M9.8 5.5h3.7v14H9.8z"/><path d="M14.6 6.7l3.7.8-2.9 12.6-3.7-.8"/>'),
 
+    /* 配置滑块：三条滑轨 + 定位钮（吸顶横条右上角的展开钮用） */
+    sliders: s('<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/><circle cx="14.5" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="8.5" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="18" r="2" fill="currentColor" stroke="none"/>'),
+
+    /* 关闭（吸顶面板展开态的收起钮） */
+    close: s('<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>'),
+
     /* 多人汤屋：房子 */
     house: s('<path d="M4.5 11.2 12 4.6l7.5 6.6"/><path d="M6.4 10v8.9a1 1 0 0 0 1 1h9.2a1 1 0 0 0 1-1V10"/><path d="M10.2 20v-4.7a1.8 1.8 0 0 1 3.6 0V20"/>'),
 
