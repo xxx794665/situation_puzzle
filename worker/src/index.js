@@ -133,7 +133,13 @@ function roomStub(env, code) {
 /* 内部 RPC 的 GET 形态：动作与载荷走查询串（?p=<encodeURIComponent(JSON)>，
  * room.js 的 fetch 对 GET 请求会从 p 还原 body）。DO 调用不出网络边界。
  * 载荷设 8KB 上限并捕获编码异常：恶意超长 body 或含未配对代理对的 JSON
- * 不该把请求打挂成 500，而是返回明确错误。 */
+ * 不该把请求打挂成 500，而是返回明确错误。
+ * 【必须绝对 URL】workerd 的 Request 构造器只收绝对地址（相对路径同步抛
+ * "Invalid URL"，且发生在 doRpc 调用之前、调用方的 .catch 接不住）——
+ * 2026-09-29 建房/进房全线 500（CF error 1101）就是这里丢了 https://do/ 前缀；
+ * DO fetch 只解析 path+query，假主机名不出网。 */
+const DO_RPC_BASE = "https://do";
+
 function rpcGet(stub, actionQuery, payload) {
   var q = "";
   if (payload) {
@@ -146,7 +152,7 @@ function rpcGet(stub, actionQuery, payload) {
       return Promise.reject(new Error("RPC_PAYLOAD_ENCODE_FAILED"));
     }
   }
-  return doRpc(stub, new Request("/?action=" + actionQuery + q, { method: "GET" }));
+  return doRpc(stub, new Request(DO_RPC_BASE + "/?action=" + actionQuery + q, { method: "GET" }));
 }
 
 export default {
@@ -248,7 +254,7 @@ export default {
     if (tm) {
       const code = tm[1].toUpperCase();
       const pid = tm[2];
-      const snap = await doRpc(roomStub(env, code), new Request("/?action=state", { method: "GET" }))
+      const snap = await doRpc(roomStub(env, code), new Request(DO_RPC_BASE + "/?action=state", { method: "GET" }))
         .then((r) => r.json())
         .catch(() => null);
       if (!snap || !snap.exists) return reply({ error: "NO_SUCH_ROOM" }, 404);
@@ -280,7 +286,7 @@ export default {
       /* 极小概率撞号：探测 3 次 */
       for (let i = 0; i < 3; i++) {
         const snap = await doRpc(roomStub(env, code),
-          new Request("/?action=state", { method: "GET" })
+          new Request(DO_RPC_BASE + "/?action=state", { method: "GET" })
         ).then((r) => r.json()).catch(() => ({ exists: false }));
         if (!snap || !snap.exists) break;
         code = makeRoomCode();

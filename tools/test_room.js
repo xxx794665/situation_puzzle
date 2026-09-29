@@ -1,5 +1,6 @@
 /* 联机全链路自测（UTF-8 安全）：node tools/test_room.js */
-const BASE = "https://soup-room.57gqq9hsq.workers.dev";
+/* 反代自定义域名（workers.dev 在部分地区被 DNS 污染不可达，见 js/net.js 同款注释） */
+const BASE = "https://soup-room.xxx794665.party";
 
 async function api(path, method, body) {
   const res = await fetch(BASE + path, {
