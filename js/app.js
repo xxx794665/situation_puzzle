@@ -2378,9 +2378,20 @@
     /* 刷新后如果还在房间里，直接接回去（房间层负责判断，找不到就静默放弃） */
     if (window.SoupRoom && window.SoupRoom.resume) window.SoupRoom.resume();
 
-    /* 离线缓存：二次访问秒开。只在 https 下注册，本地调试不吃旧文件 */
+    /* 离线缓存：二次访问秒开。只在 https 下注册，本地调试不吃旧文件。
+       updateViaCache:"none"：sw.js 自身的更新检查绕过 HTTP 缓存——
+       GitHub Pages 给所有文件发 max-age=600，不设这个的话新 SW 要
+       等满 10 分钟才被发现（2026-09-29 缓存修复的另一半）。 */
     if ("serviceWorker" in navigator && location.protocol === "https:") {
-      navigator.serviceWorker.register("sw.js").catch(function () { /* 注册失败不影响玩 */ });
+      /* 页面是否已被旧 SW 控制：controllerchange 的首次触发是 claim，不算更新 */
+      var hadController = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(function () { /* 注册失败不影响玩 */ });
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (!hadController) { hadController = true; return; } /* 首次接管：正常 */
+        /* 新版本 SW 在本页开着的时候激活了：自动刷新一次让新代码立刻生效。
+           只按页面生命周期防一次循环（刷新后新 SW 已是控制者，不会再触发） */
+        location.reload();
+      });
     }
   }
 
