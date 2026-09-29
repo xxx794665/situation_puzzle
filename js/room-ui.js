@@ -517,6 +517,15 @@
       showReveal(s);
     }
     if (s.phase !== "revealed") R.revealedShown = false;
+    /* 换题重开（2026-09-29）：揭底面板还开着时房主换了新锅，快照切回 playing
+       就把揭底面板收掉，别让它盖在新一局上面 */
+    if (s.phase === "playing") {
+      var rf = document.querySelector(".reveal-final");
+      if (rf) {
+        if (rf.parentNode) rf.parentNode.removeChild(rf);
+        document.body.classList.remove("modal-open");
+      }
+    }
 
     paintCooldown(s);
     /* 第⑥条：放弃投票卡（有投票才出现） */
@@ -1858,11 +1867,9 @@
       var b = ev.target.closest ? ev.target.closest(".pz-card") : null;
       if (!b) return;
       var id = b.getAttribute("data-id");
-      act("choose", { puzzleId: id }).then(function () {
-        R.toast("已选好，等全员准备");
-        if (host.parentNode) host.parentNode.removeChild(host);
-        document.body.classList.remove("modal-open");
-      }).catch(function (e) { R.toast("选汤失败：" + e.message); });
+      switchPot(id, "已选好，等全员准备", "已选好，新锅开熬！");
+      if (host.parentNode) host.parentNode.removeChild(host);
+      document.body.classList.remove("modal-open");
     });
     host.querySelector("#pick-cancel").addEventListener("click", function () {
       if (host.parentNode) host.parentNode.removeChild(host);
@@ -1884,7 +1891,10 @@
   /* 房主「随机一题」：精品 + 汤库全部可抽，抽到就直接选上，不再只在精品 100 里转。
      房间未成年模式（房规）挡红汤/黄汤；房主的近期抽取记录在这里写入并避开（Q18）。
      纯离线联动：库层判定必须走房主配置的房间 AI（快照 ai 字段），没配就整层不进抽取池。 */
-  function doRoomRandom() {
+  /* 抽一锅（随机一锅 / 对局中·揭底后的下一锅共用）：精品 + 汤库全部可抽。
+     房间未成年模式挡红汤/黄汤；房主的近期抽取记录在这里写入并避开（Q18）；
+     纯离线联动：库层判定必须走房主配置的房间 AI（快照 ai 字段），没配就整层不进抽取池。 */
+  function drawRandomPuzzle() {
     var E2 = window.SoupEngine;
     var LIB2 = window.SOUP_LIBRARY || [];
     var PUZ2 = window.PUZZLES || [];
@@ -1901,24 +1911,77 @@
     if (total <= 0) pick = coreAvail || libAvail;
     else if (Math.random() * total < libWeight) pick = libAvail || coreAvail;
     else pick = coreAvail || libAvail;
-    if (!pick || !pick.id) { R.toast("题库还没加载好，稍后再试"); return; }
-    if (E2 && E2.recordRecent) E2.recordRecent(pick.id);
-    var btn = $("#btn-room-rand");
-    if (btn) btn.disabled = true;
-    act("choose", { puzzleId: pick.id }).then(function () {
-      R.toast("随机一锅：" + (pick.dispTitle || pick.title || "无题"));
-    }).catch(function (e) {
-      R.toast("随机选汤失败：" + e.message);
-    }).then(function () {
-      if (btn && R.snap) {
-        var mine = null;
-        (R.snap.players || []).forEach(function (p) { if (p.uid === myUid(R.snap)) mine = p; });
-        btn.disabled = !(mine && mine.isHost);
-      } else if (btn) btn.disabled = false;
+    if (pick && pick.id && E2 && E2.recordRecent) E2.recordRecent(pick.id);
+    return pick;
+  }
+
+  /* 换题统一入口（2026-09-29）：choose 在对局中/揭底后会被服务端整锅清零并
+     立即重开局。对局中先弹二次确认，防手滑打断没打完的锅；大堂照旧等全员准备。 */
+  function switchPot(puzzleId, okLobby, okRestarted) {
+    var go = function () {
+      var btn = $("#btn-room-rand");
+      if (btn) btn.disabled = true;
+      act("choose", { puzzleId: puzzleId }).then(function (r) {
+        R.toast(r && r.restarted ? (okRestarted || okLobby) : okLobby);
+      }).catch(function (e) {
+        R.toast("选汤失败：" + e.message);
+      }).then(function () {
+        if (btn && R.snap) {
+          var mine = null;
+          (R.snap.players || []).forEach(function (p) { if (p.uid === myUid(R.snap)) mine = p; });
+          btn.disabled = !(mine && mine.isHost);
+        } else if (btn) btn.disabled = false;
+      });
+    };
+    if (R.snap && R.snap.phase === "playing") { confirmSwitchPot(go); return; }
+    go();
+  }
+
+  /* 二次确认弹窗：对局中换题会清掉本锅进度，房主必须 explicit 确认 */
+  function confirmSwitchPot(onOk) {
+    var host = document.createElement("div");
+    host.className = "modal-wrap";
+    host.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true">' +
+      "<h3>这锅还没打完</h3>" +
+      '<p class="modal-sub">换题会清掉本锅的问答与进度、直接重开一局。确定要换吗？</p>' +
+      '<div class="modal-actions">' +
+      '<button type="button" class="btn ghost" id="sw-cancel">再打打</button>' +
+      '<button type="button" class="btn primary" id="sw-ok">确定换题</button>' +
+      "</div></div>";
+    document.body.appendChild(host);
+    document.body.classList.add("modal-open");
+    host.querySelector("#sw-ok").addEventListener("click", function () {
+      if (host.parentNode) host.parentNode.removeChild(host);
+      document.body.classList.remove("modal-open");
+      onOk();
+    });
+    host.querySelector("#sw-cancel").addEventListener("click", function () {
+      if (host.parentNode) host.parentNode.removeChild(host);
+      document.body.classList.remove("modal-open");
     });
   }
 
-  function doNext() { act("next", {}).then(function () { R.toast("准备下一锅，全员重新准备"); }).catch(function (e) { R.toast("操作失败：" + e.message); }); }
+  function doRoomRandom() {
+    var pick = drawRandomPuzzle();
+    if (!pick || !pick.id) { R.toast("题库还没加载好，稍后再试"); return; }
+    var title = pick.dispTitle || pick.title || "无题";
+    switchPot(pick.id, "随机一锅：" + title, "随机一锅：" + title + "，新锅开熬！");
+  }
+
+  function doNext() {
+    var ph = (R.snap && R.snap.phase) || "";
+    /* 大堂里「下一锅」仍是回到准备态（没打的锅谈不上清进度） */
+    if (ph !== "playing" && ph !== "revealed") {
+      act("next", {}).then(function () { R.toast("准备下一锅，全员重新准备"); }).catch(function (e) { R.toast("操作失败：" + e.message); });
+      return;
+    }
+    /* 对局中 / 揭底后（2026-09-29）：下一锅 = 清状态 + 随机抽题重开，与随机一锅同路径 */
+    var pick = drawRandomPuzzle();
+    if (!pick || !pick.id) { R.toast("题库还没加载好，稍后再试"); return; }
+    var title = pick.dispTitle || pick.title || "无题";
+    switchPot(pick.id, "已抽好下一锅：" + title + "（等全员准备）", "下一锅：" + title + "，新锅开熬！");
+  }
 
   /* 聊天发送（新①）：带 clientId 做幂等，网络重试不会重复上屏 */
   function doChat() {

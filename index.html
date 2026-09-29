@@ -278,6 +278,14 @@
             <div class="rand-actions">
               <button type="button" class="btn primary" id="btn-room-ready">我准备好了</button>
             </div>
+            <!-- 房主操作（2026-09-29）：从「本锅」列独立出来挪到玩家准备区下方，
+                 本锅列里题目与实时对话直接相邻，推理动线不打断 -->
+            <div class="rand-actions room-host-actions">
+              <button type="button" class="btn ghost" id="btn-room-choose">选一锅（房主）</button>
+              <button type="button" class="btn ghost" id="btn-room-rand">随机一锅（房主）</button>
+              <button type="button" class="btn ghost" id="btn-room-next">下一锅（房主）</button>
+              <button type="button" class="btn ghost" id="btn-room-ai">AI 汤主设置（房主）</button>
+            </div>
           </div>
 
           <div class="room-col">
@@ -290,13 +298,8 @@
             <div class="room-puzzle" id="room-puzzle">
               <p class="empty">房主还没选汤。</p>
             </div>
-            <div class="rand-actions">
-              <button type="button" class="btn ghost" id="btn-room-choose">选一锅（房主）</button>
-              <button type="button" class="btn ghost" id="btn-room-rand">随机一锅（房主）</button>
-              <button type="button" class="btn ghost" id="btn-room-next">下一锅（房主）</button>
-              <button type="button" class="btn ghost" id="btn-room-ai">AI 汤主设置（房主）</button>
-            </div>
-            <!-- 实时对话流（多⑤）：中区看当下。与左栏回顾、二级面板查全部同源。 -->
+            <!-- 实时对话流（多⑤）：中区看当下。与左栏回顾、二级面板查全部同源。
+                 房主操作区已独立挪到玩家准备区下方，题目与实时对话直接相邻。 -->
             <div class="panel-head" style="margin-top:12px">
               <h2>实时对话</h2>
               <span class="badge" id="room-feed-count">0 问</span>

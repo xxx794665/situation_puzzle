@@ -701,6 +701,51 @@ export class Room {
       s.turnDeadline = 0;
       s.phase = "playing";
       s.potStartedAt = now();
+      this.bump();
+      return { ok: true, phase: s.phase };
+    }
+    /* 换题重开（2026-09-29）：对局中 / 揭底后房主选汤（随机一锅、选一锅都走这里），
+       整锅清零并立即重开局。旧版只改 puzzleId、phase 停在 revealed——题面换了，
+       历史问答和轮次全挂着、提问也打不出去（NOT_PLAYING），就是「一局打完状态没清」
+       的根因。对局中打断由客户端二次确认，服务端认房主权威。 */
+    if (s.phase === "playing" || s.phase === "revealed") {
+      s.qaLog = [];
+      s.revealed = [];
+      s.guessCooldowns = {};
+      s.lastGuess = null;
+      s.winnerUid = 0;
+      s.winnerNick = "";
+      s.stars = 0;
+      s.pendingAI = null;
+      s.askInFlightUntil = 0;
+      s.vote = null;
+      s.giveUp = false;
+      s.revealHow = "";
+      this.resetPotSolve(s);
+      s.order = shuffle(s.players.map((x) => x.uid));
+      s.potUids = s.order.slice();
+      s.turnIdx = 0;
+      s.turnDeadline = now() + TURN_TIMEOUT_MS;
+      s.phase = "playing";
+      s.potStartedAt = now();
+      this.sysEvent(p.nickname + " 换了新锅，整锅状态已清零，游戏重新开始！");
+      this.bump();
+      return { ok: true, phase: s.phase, restarted: true };
+    }
+    /* 大堂补自动开局（2026-09-29）：「下一锅→随机一锅」会留下全员已准备 + 已选汤
+       却停在大堂的组合（开局判定只在 setReady 里查，choose 不查）。这里补同一判定。 */
+    const allReady = s.players.length > 0 && s.players.every((x) => x.ready);
+    if (allReady) {
+      s.order = shuffle(s.players.map((x) => x.uid));
+      s.potUids = s.order.slice();
+      s.turnIdx = 0;
+      s.turnDeadline = now() + TURN_TIMEOUT_MS;
+      s.phase = "playing";
+      this.resetPotSolve(s);
+      s.potStartedAt = now();
+      this.sysEvent("全员已准备，新锅开熬！");
+      this.bump();
+      return { ok: true, phase: s.phase, restarted: true };
     }
     this.bump();
     return { ok: true, phase: s.phase };

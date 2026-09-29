@@ -1214,6 +1214,12 @@ body.fx-off .steam-field { display: none !important; }
 .rand-row .chips { margin-bottom: 0; justify-content: center; }
 .rand-pool { margin: 14px 0 0; font-size: 12.5px; color: var(--dim-2); }
 .rand-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+/* 房主操作区（2026-09-29）：独立分区挂在玩家准备区下方，虚线与准备按钮分开 */
+.room-host-actions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(169, 123, 56, .3);
+}
 
 /* ---------- AI 汤主 ---------- */
 .ai-bar {
