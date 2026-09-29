@@ -15,7 +15,7 @@
 4. 未成年模式（挡红汤+黄汤，隐藏不可解；开启免密、关闭需密码；首访游玩前一次性提示；多人房房规优先）；
 5. 近期抽取记录（localStorage 滚动 50 题，单人随机入口 + 多人房随机一锅以房主记录为准）。
 
-**主要改动**：新增 `CLAUDE.md`、`CONTEXT.md`、`docs/PROJECT.md`、本文件、`docs/adr/0001~0004`；`tools/rebuild_master_from_public.js`（母本重建）；`tools/flavor_20260929/`（全量七标签判定表与复核记录）；`tools/apply_flavor_tags.js`（判定回写母本+精品层）；`js/config.js`（未成年模式密码）；`js/engine.js`、`js/app.js`、`js/room-ui.js`、`js/net.js`、`index.html`、`style.css`（风味筛选、未成年模式、近期抽取）；`worker/src/room.js`、`worker/src/index.js`、`tools/build_worker_data.js`（flavor 进服务端题库 + 房规拦截）；`tools/admin.html` + `tools/apply_flavor_patch.js`（题目维护界面）。
+**主要改动**：新增 `CLAUDE.md`、`CONTEXT.md`、`docs/PROJECT.md`、本文件、`docs/adr/0001~0004`；`tools/rebuild_master_from_public.js`（母本重建）；`tools/flavor_20260929/`（全量七标签判定表与复核记录）；`tools/flavor_20260929/apply_flavor_tags.js`（判定回写母本+精品层）；`js/config.js`（未成年模式密码）；`js/engine.js`、`js/app.js`、`js/room-ui.js`、`js/net.js`、`index.html`、`style.css`（风味筛选、未成年模式、近期抽取）；`worker/src/room.js`、`worker/src/index.js`、`tools/build_worker_data.js`（flavor 进服务端题库 + 房规拦截）；`tools/admin.html` + `tools/apply_flavor_patch.js`（题目维护界面）。
 
 **结果与证据**：
 - 全库 2042 题（精品 100 + 汤库 1942）flavor 全覆盖，构建幂等自检、site-guard、汤底污染回归全过。

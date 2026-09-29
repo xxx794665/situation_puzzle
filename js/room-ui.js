@@ -254,9 +254,13 @@
       return N.joinRoom(code, nick);
     }).then(function (snap) {
       showLive();
-      /* 房规优先（Q17B）：进房时明确告知本房口径，不拦人 */
-      R.toast("已进入 " + (snap.roomCode || code) +
-        (snap.minorMode ? "（本房已启用未成年模式）" : "（本房未启用未成年模式）"));
+      /* 房规优先（Q17B）：进房时明确告知本房口径，不拦人；
+         玩家本机开着未成年模式而房里没开时，特别提醒一句 */
+      var localMinor = !!(window.SoupApp && window.SoupApp.minorOn && window.SoupApp.minorOn());
+      var suffix = snap.minorMode
+        ? "（本房已启用未成年模式）"
+        : (localMinor ? "（注意：本房未启用未成年模式）" : "（本房未启用未成年模式）");
+      R.toast("已进入 " + (snap.roomCode || code) + suffix);
       startWatch();
     }).catch(function (e) {
       var m = String((e && e.message) || e);
@@ -1502,7 +1506,7 @@
     var PUZ2 = window.PUZZLES || [];
     var st = { page: 1, kw: "", cat: "全部", difficulty: 0, layer: "all", style: "", tone: "", opt: [] };
     var PAGE = 60;
-    host = document.createElement("div");
+    var host = document.createElement("div");
     host.className = "modal-wrap";
     host.innerHTML =
       '<div class="modal modal-library" role="dialog" aria-modal="true">' +
@@ -1534,11 +1538,6 @@
     var diffEl = host.querySelector("#room-lib-diffs");
     var flavorEl = host.querySelector("#room-lib-flavor");
     var pool = [];
-
-    /* 房规优先：房间未成年模式由房主建房配置，选汤面板按它过滤（Q17） */
-    function roomMinor() {
-      return !!(R.snap && R.snap.minorMode);
-    }
 
     function flavorSel2() {
       var o = { style: st.style, tone: st.tone, optional: st.opt.slice() };
@@ -1648,9 +1647,10 @@
         if (ai > 0) html += '<span class="flavor-sep" aria-hidden="true"></span>';
         axis.forEach(function (v) {
           if (minor && E2.MINOR_BLOCKED.indexOf(v) !== -1) return;
-          var on = (v === axis[0] ? st.style : st.tone) === v;
+          var slot = ai === 0 ? "style" : "tone";
+          var on = st[slot] === v;
           html += '<button type="button" class="chip flavor f-' + v + (on ? " on" : "") +
-            '" data-axis="' + (v === axis[0] ? "style" : "tone") + '" data-val="' + esc(v) + '">' + esc(v) + "</button>";
+            '" data-axis="' + slot + '" data-val="' + esc(v) + '">' + esc(v) + "</button>";
         });
       });
       E2.FLAVOR_OPTIONAL.forEach(function (v) {
@@ -1783,11 +1783,17 @@
     setTimeout(function () { kwEl.focus(); }, 40);
   }
 
+  /* 房规是否开启未成年模式：模块级助手（doChoose 与 doRoomRandom 共用） */
+  function roomMinor() {
+    return !!(R.snap && R.snap.minorMode);
+  }
+
   /* 房主「随机一题」：精品 + 汤库全部可抽，抽到就直接选上，不再只在精品 100 里转。
      房间未成年模式（房规）挡红汤/黄汤；房主的近期抽取记录在这里写入并避开（Q18）。 */
   function doRoomRandom() {
     var E2 = window.SoupEngine;
     var LIB2 = window.SOUP_LIBRARY || [];
+    var PUZ2 = window.PUZZLES || [];
     var minor = roomMinor();
     var sel = (E2 && E2.matchFlavor) ? { style: "", tone: "", optional: [] } : null;
     var ex = (E2 && E2.recentExcludes) ? E2.recentExcludes() : [];

@@ -1,9 +1,10 @@
 /* ============================================================
  * 深海汤屋 · 服务端题库构建
  * ------------------------------------------------------------
- * 产出两份 ES module：
+ * 产出三份文件（前两份为 ES module，第三份是 <script> 直载的普通脚本）：
  *   worker/src/puzzles.data.js  ← js/data.js + js/data-more.js（精品层，100 题）
  *   worker/src/library.data.js  ← data/library/library.data.js（汤库层母本）
+ *   js/library.public.js        ← 同一母本（明文含底，classic var 形态）
  *
  * 为什么要搬库层：库层原本把 truth 整段塞在前端，
  * F12 打开 library.data.js 就能直接看答案。搬进 Worker 后

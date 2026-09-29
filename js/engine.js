@@ -442,12 +442,19 @@
     });
   }
 
-  /* 库层随机抽题：对齐 drawFrom 的签名与兜底语义 */
-  function drawFromLibrary(list, opts, excludeIds) {
-    var cand = libraryPool(list, opts);
-    if (!cand.length) cand = (list || []);
-    if (!cand.length) return null;
-    var ex = excludeIds || [];
+/* 库层随机抽题：对齐 drawFrom 的签名与兜底语义。
+   兜底红线（ADR 0004）：未成年模式下候选筛空时只退到「未成年过滤 + 语言梗
+   默认排除」的一层，绝不把红汤/黄汤或语言梗题重新放进候选；仍为空则返回
+   null 由调用方提示。 */
+function drawFromLibrary(list, opts, excludeIds) {
+  var o = opts || {};
+  var cand = libraryPool(list, o);
+  if (!cand.length && o.minor) {
+    cand = (list || []).filter(function (p) { return matchFlavor(p, null, true); });
+  }
+  if (!cand.length && !o.minor) cand = (list || []);
+  if (!cand.length) return null;
+  var ex = excludeIds || [];
     var fresh = cand.filter(function (p) { return ex.indexOf(p.id) === -1; });
     var arr = fresh.length ? fresh : cand;
     return arr[Math.floor(Math.random() * arr.length)] || null;

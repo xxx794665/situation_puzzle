@@ -118,7 +118,9 @@
 
 ### 汤库的题材标签
 
-一题可挂多个标签，所以条数之和大于题数。翻译来源单独成标签，便于筛出「机器翻译」那一档：| 标签 | 道数 | 标签 | 道数 |
+一题可挂多个标签，所以条数之和大于题数。翻译来源单独成标签，便于筛出「机器翻译」那一档：
+
+| 标签 | 道数 | 标签 | 道数 |
 |---|---:|---|---:|
 | 其他 | 1067 | 脑洞 | 71 |
 | 日译中 | 629 | 反转 | 62 |
@@ -224,7 +226,7 @@
 | 音频 | Web Audio API 实时合成 4 首 BGM + 十余种音效（含轮次提示铃），无音频文件 |
 | 字体 | 标题用子集化 `NotoSerifSC-title.woff2` |
 | 存储 | `localStorage` |
-| 离线 | Service Worker（缓存名 `deepsea-soup-v17`，HTML/CSS/JS 走 network-first、图片字体走 cache-first，仅 https 下注册）+ Web App Manifest |
+| 离线 | Service Worker（缓存名 `deepsea-soup-v19`，HTML/CSS/JS 走 network-first、图片字体走 cache-first，仅 https 下注册）+ Web App Manifest |
 | 联机 | Cloudflare Workers + Durable Objects（SQLite 持久化），HTTP 1.5s 增量轮询 |
 
 脚本顺序：`gsap.min.js` → `config.js` → `data.js` → `library.public.js` → `engine.js` → `ai.js` → `audio.js` → `fx.js` → `transition.js` → `icons.js` → `net.js` → `room-ui.js` → `app.js`（全部 `defer`）。精品题后 80 道在 `data-more.js`，首屏后由 `app.js` 异步注入并入（精品层 20 → 100 道）。

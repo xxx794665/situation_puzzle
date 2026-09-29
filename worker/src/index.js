@@ -100,11 +100,22 @@ function roomStub(env, code) {
 }
 
 /* 内部 RPC 的 GET 形态：动作与载荷走查询串（?p=<encodeURIComponent(JSON)>，
- * room.js 的 fetch 对 GET 请求会从 p 还原 body）。DO 调用不出网络边界，
- * 内部动作载荷都很小，GET 足够。 */
+ * room.js 的 fetch 对 GET 请求会从 p 还原 body）。DO 调用不出网络边界。
+ * 载荷设 8KB 上限并捕获编码异常：恶意超长 body 或含未配对代理对的 JSON
+ * 不该把请求打挂成 500，而是返回明确错误。 */
 function rpcGet(stub, actionQuery, payload) {
-  const p = payload ? "&p=" + encodeURIComponent(JSON.stringify(payload)) : "";
-  return doRpc(stub, new Request("/?action=" + actionQuery + p, { method: "GET" }));
+  var q = "";
+  if (payload) {
+    var encoded;
+    try {
+      encoded = JSON.stringify(payload);
+      if (encoded.length > 8192) return Promise.reject(new Error("RPC_PAYLOAD_TOO_LARGE"));
+      q = "&p=" + encodeURIComponent(encoded);
+    } catch (e) {
+      return Promise.reject(new Error("RPC_PAYLOAD_ENCODE_FAILED"));
+    }
+  }
+  return doRpc(stub, new Request("/?action=" + actionQuery + q, { method: "GET" }));
 }
 
 export default {

@@ -103,6 +103,13 @@
     v.on = !!on;
     v.prompted = true;
     minorSave(v);
+    if (on) {
+      /* 清掉已选中的被挡标签，避免「chip 隐藏但选中值还在」的死筛选 */
+      if (state.randTone === "红汤" || state.randTone === "黄汤") state.randTone = "";
+      if (libState.tone === "红汤" || libState.tone === "黄汤") libState.tone = "";
+      state.randOpt = minorVisibleOpt(state.randOpt);
+      libState.opt = minorVisibleOpt(libState.opt);
+    }
     if (!opts || !opts.silent) {
       toast(on ? "未成年模式已开启：红汤与黄汤已隐藏" : "未成年模式已关闭");
       renderMinorToggle();
@@ -1535,11 +1542,15 @@
   }
 
   function nextPuzzle() {
-    /* 库题继续从库里抽，精品题继续从精品层抽 */
+    /* 库题继续从库里抽，精品题继续从精品层抽。
+       「下一锅」也是随机抽取：同样走未成年模式 + 近期抽取记录（Q15/Q18）。 */
     var lib = isLibPid(state.pid);
+    var sel = flavorSel("", "", []);
+    var ex = E.recentExcludes();
     var nxt = lib
-      ? E.drawFromLibrary(LIB, { hasTruth: true })
-      : E.drawFrom(PUZZLES);
+      ? E.drawFromLibrary(LIB, { hasTruth: true, flavor: sel, minor: minorOn() }, ex)
+      : E.drawFrom(E.pool({ flavor: sel, minor: minorOn() }), ex);
+    if (nxt) E.recordRecent(nxt.id);
     closeModal("#modal-end");
     if (nxt) loadPuzzle(nxt.id);
   }
@@ -1650,9 +1661,10 @@
       if (ai > 0) html += '<span class="flavor-sep" aria-hidden="true"></span>';
       axis.forEach(function (v) {
         if (minor && E.MINOR_BLOCKED.indexOf(v) !== -1) return;
-        var on = (v === axis[0] ? sel.style : sel.tone) === v;
+        var slot = ai === 0 ? "style" : "tone";
+        var on = sel[slot] === v;
         html += '<button type="button" class="chip flavor f-' + v + (on ? " on" : "") +
-          '" data-axis="' + (v === axis[0] ? "style" : "tone") + '" data-val="' + esc(v) + '"' +
+          '" data-axis="' + slot + '" data-val="' + esc(v) + '"' +
           ' aria-pressed="' + (on ? "true" : "false") + '">' + esc(v) + "</button>";
       });
     });
@@ -1783,7 +1795,7 @@
     });
   }
 
-  /* 汤库卡片上的风味徽章（紧凑一行，语言梗带角标样式） */
+  /* 汤库卡片上的风味徽章（紧凑一行，语言梗为虚线边框样式） */
   function flavorBadges(p) {
     var f = E.flavorOf(p);
     if (!f.length) return "";
@@ -1955,7 +1967,13 @@
   function bind() {
     var startBtn = $("#btn-start");
     if (startBtn) startBtn.addEventListener("click", function () {
-      loadPuzzle(PUZZLES[0].id);
+      /* 「从第一题开始」按顺序取第一锅符合当前口径（未成年模式）的精品题 */
+      var first = PUZZLES[0];
+      var sel = flavorSel("", "", []);
+      for (var i = 0; i < PUZZLES.length; i++) {
+        if (E.matchFlavor(PUZZLES[i], sel, minorOn())) { first = PUZZLES[i]; break; }
+      }
+      loadPuzzle(first.id);
     });
 
     var resumeBtn = $("#btn-resume");
