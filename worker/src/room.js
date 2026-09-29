@@ -1181,7 +1181,7 @@ export class Room {
       } : null,
       ai: s.ai
         ? (you && you.isHost
-            ? { provider: s.ai.provider, model: s.ai.model, baseUrl: s.ai.baseUrl, hasKey: !!s.ai.apiKey }
+            ? { provider: s.ai.provider, model: s.ai.model, baseUrl: s.ai.baseUrl, kind: s.ai.kind, hasKey: !!s.ai.apiKey }
             /* 非房主只看到模型名；baseUrl 和 key 一样只留服务端（规格 #11/#12） */
             : { provider: s.ai.provider, model: s.ai.model })
         : null,

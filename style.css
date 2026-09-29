@@ -2733,4 +2733,14 @@ body.my-turn .askbar { border-color: var(--yes); box-shadow: 0 0 18px rgba(104, 
   .dock-vol { height: 26px; border-radius: 13px; }
   .dock-vol::-webkit-slider-thumb { width: 18px; height: 18px; }
   .dock-vol::-moz-range-thumb { width: 18px; height: 18px; }
+
+  /* 触屏收起态 = 小胶囊悬浮窗：只留聊天图标 + 未读计数，
+     不再横占 320px 一条压在房间内容上；点一下即展开。 */
+  .room-chat.collapsed {
+    width: auto;
+    right: calc(14px + var(--sar));
+    border-radius: 999px;
+  }
+  .room-chat.collapsed .rc-label,
+  .room-chat.collapsed .rc-hint { display: none; }
 }

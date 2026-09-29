@@ -211,8 +211,9 @@
     if (l) l.classList.remove("hidden");
     showScreen("screen-room");
     resetRoomSigs();
-    /* 房间聊天默认展开在右下（主人手动收起后本次会话保持收起） */
-    toggleChat(true);
+    /* 房间聊天：桌面默认展开；触屏保持收起的胶囊悬浮窗
+       （展开层会盖住房间操作区，走查 P0-2；主人手动展开后本次会话保持展开） */
+    toggleChat(!isTouch());
     onRoomSideEffects();
   }
 
@@ -834,6 +835,8 @@
     var log = s.chatLog || [];
     var last = log.length ? log[log.length - 1].seq || 0 : 0;
     var badge = $("#room-chat-badge");
+    /* 进房基线（null 哨兵）：进房那一刻已有的闲聊不算未读，之后的新消息才计 */
+    if (R.chatSeen == null) R.chatSeen = last;
     /* 未读：面板收起时，把新消息数打在标题上 */
     if (badge) {
       var unread = 0;
@@ -1132,9 +1135,11 @@
       var el = $(sel);
       if (el) el.__sig = "";
     });
-    /* 进房基线：旧报喜不补响铃，上一次锅的个人弹窗状态也不带入 */
+    /* 进房基线：旧报喜不补响铃，上一次锅的个人弹窗状态也不带入；
+       chatSeen 用 null 哨兵 —— 首个快照到来时把「进房前就有的闲聊」计成已读 */
     R.cgSeenSeq = 0;
     R.mySolvedShown = false;
+    R.chatSeen = null;
   }
   root.SoupAppToast = function (m) {
     var el = document.getElementById("toast");
@@ -2132,20 +2137,38 @@
     });
   }
 
-  /* 房主打开 AI 配置时，把服务端已存的 baseUrl / model 回填，
-     免得“保存了但界面空着”导致重复手打。Key 永不下发，必须重填。 */
+  /* 房主打开 AI 配置时：先回填服务端已存的 baseUrl / model（Key 永不下发），
+     再拿房主本机单人 AI 设置（SoupAI / localStorage）把剩下的框补齐——
+     Key 就在本机、哪儿也不去，所以可以直接填，开房即玩不用每次手打三件套。
+     kind 跟随 baseUrl / model 实际来自的那份配置（anthropic 与 openai 格式不同）。 */
   function prefillAiModal(host) {
     var s = R.snap || {};
     var ai = s.ai || null;
-    if (!ai) return;
     var b = host.querySelector("#rai-base");
     var m = host.querySelector("#rai-model");
-    if (b && !b.value && ai.baseUrl) b.value = ai.baseUrl;
-    if (m && !m.value && ai.model) m.value = ai.model;
+    var k = host.querySelector("#rai-key");
     var fb = host.querySelector("#rai-fb");
-    if (fb && ai.hasKey) {
-      fb.textContent = "已存过配置（" + (ai.model || "?") + "）。Key 不会下发，需要重填才能保存；只想直接玩可以关掉窗口。";
-      fb.className = "guess-feedback";
+    if (ai) {
+      if (b && !b.value && ai.baseUrl) b.value = ai.baseUrl;
+      if (m && !m.value && ai.model) m.value = ai.model;
+      host.__aiKind = ai.kind === "anthropic" ? "anthropic" : "openai";
+    }
+    var loc = (root.SoupAI && root.SoupAI.config) ? root.SoupAI.config() : null;
+    var keyFilled = false;
+    if (loc && (loc.enabled || loc.apiKey)) {
+      if (b && !b.value && loc.baseUrl) b.value = loc.baseUrl;
+      if (m && !m.value && loc.model) m.value = loc.model;
+      if (k && !k.value && loc.apiKey) { k.value = loc.apiKey; keyFilled = true; }
+      if (b && !ai && loc.baseUrl) host.__aiKind = loc.kind === "anthropic" ? "anthropic" : "openai";
+    }
+    if (fb) {
+      if (keyFilled) {
+        fb.textContent = "已带入你本机的单人 AI 设置（" + (loc.model || "?") + "），确认没问题直接点「保存」。";
+        fb.className = "guess-feedback";
+      } else if (ai && ai.hasKey) {
+        fb.textContent = "已存过配置（" + (ai.model || "?") + "）。Key 不会下发，需要重填才能保存；只想直接玩可以关掉窗口。";
+        fb.className = "guess-feedback";
+      }
     }
   }
 
@@ -2174,7 +2197,7 @@
 
     function readCfg() {
       return {
-        provider: "custom", kind: "openai",
+        provider: "custom", kind: host.__aiKind === "anthropic" ? "anthropic" : "openai",
         baseUrl: host.querySelector("#rai-base").value,
         model: host.querySelector("#rai-model").value,
         apiKey: host.querySelector("#rai-key").value
