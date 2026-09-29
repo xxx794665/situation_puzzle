@@ -2088,20 +2088,38 @@
       toggle.setAttribute("aria-label", "展开导航");
       toggle.innerHTML = ic("sliders");
 
-      /* 导航按钮：克隆自大顶栏（跳过音乐台——吸顶态本来就不显示它）。
-         克隆体不带 id，点击转发给原按钮，原有绑定/音效/状态逻辑原样生效；
-         桌面=平铺一行（与旧版吸顶条一致），移动端=折叠进 .tc-nav 面板 */
+      /* 导航克隆自大顶栏（跳过音乐台——吸顶态本来就不显示它），保留一级菜单
+         分级：.nav-group 原样带标题钮（单人游戏/设置）与下拉项，多人游戏直达。
+         克隆体按钮不带 id、改挂 data-act，点击转发给原按钮，原有绑定/音效/
+         状态逻辑原样生效；桌面=同款下拉菜单，移动端=面板内手风琴（见 CSS）。 */
       var nav = document.createElement("nav");
       nav.className = "tc-nav";
       var actions = topbarEl.querySelector(".top-actions");
       var kids = actions ? actions.children : [];
       for (var i = 0; i < kids.length; i++) {
         var src = kids[i];
-        if (!src.classList.contains("btn") || !src.id) continue;
-        var b = src.cloneNode(true);
-        b.removeAttribute("id");
-        b.dataset.act = src.id;
-        nav.appendChild(b);
+        if (src.classList.contains("nav-group")) {
+          var g = document.createElement("div");
+          g.className = src.className;
+          var head = src.querySelector(".nav-head");
+          if (head) g.appendChild(head.cloneNode(true));
+          var drop = document.createElement("div");
+          drop.className = "nav-drop";
+          var items = src.querySelectorAll(".nav-drop button[id]");
+          for (var j = 0; j < items.length; j++) {
+            var c = items[j].cloneNode(true);
+            c.removeAttribute("id");
+            c.dataset.act = items[j].id;
+            drop.appendChild(c);
+          }
+          g.appendChild(drop);
+          nav.appendChild(g);
+        } else if (src.classList.contains("btn") && src.id) {
+          var b = src.cloneNode(true);
+          b.removeAttribute("id");
+          b.dataset.act = src.id;
+          nav.appendChild(b);
+        }
       }
       compactBar.appendChild(brand);
       compactBar.appendChild(toggle);
@@ -2113,6 +2131,7 @@
         toggle.setAttribute("aria-expanded", on ? "true" : "false");
         toggle.setAttribute("aria-label", on ? "收起导航" : "展开导航");
         toggle.innerHTML = ic(on ? "close" : "sliders");
+        if (!on) closeDrops(); /* 面板收起时，面板里展开中的手风琴一并复位 */
       };
 
       toggle.addEventListener("click", function () {
@@ -2125,12 +2144,16 @@
         if (!t || !t.dataset.act) return;
         var real = document.getElementById(t.dataset.act);
         if (real) real.click();
-        compactSetOpen(false); /* 点完导航项顺手收起面板 */
+        /* 开关类（音效/特效/未成年）点了不收面板，方便连拨；导航类收起 */
+        if (!KEEP_OPEN[t.dataset.act]) compactSetOpen(false);
       });
-      /* 点面板外任意处收起（toggle 自身在条内，closest 会放行） */
+      /* 点面板外任意处收起（toggle 自身在条内，closest 会放行）。
+         克隆体点击会转发成真按钮的合成 click（目标是 .topbar 内），
+         那不是真正的「面板外点击」，放行避免误收面板 */
       document.addEventListener("click", function (ev) {
         if (!compactBar.classList.contains("tc-open")) return;
         if (ev.target && ev.target.closest && ev.target.closest(".topbar-compact")) return;
+        if (ev.target && ev.target.closest && ev.target.closest(".topbar")) return;
         compactSetOpen(false);
       });
 
@@ -2148,14 +2171,17 @@
       if (!compactBar || !topbarEl) return;
       var navEl = compactBar.querySelector(".tc-nav");
       if (!navEl) return;
-      var src = topbarEl.querySelectorAll(".top-actions > .btn[id]");
-      var dst = navEl.children;
-      for (var i = 0; i < src.length && i < dst.length; i++) {
-        if (dst[i].dataset.act !== src[i].id) continue;
-        if (dst[i].innerHTML !== src[i].innerHTML) dst[i].innerHTML = src[i].innerHTML;
-        var p = src[i].getAttribute("aria-pressed");
-        if (p == null) dst[i].removeAttribute("aria-pressed");
-        else dst[i].setAttribute("aria-pressed", p);
+      /* 按 data-act 找回原按钮同步文案/按压态/on 态（顺序无关，分组结构不受影响） */
+      var dsts = navEl.querySelectorAll("button[data-act]");
+      for (var i = 0; i < dsts.length; i++) {
+        var d = dsts[i];
+        var s = document.getElementById(d.dataset.act);
+        if (!s) continue;
+        if (d.innerHTML !== s.innerHTML) d.innerHTML = s.innerHTML;
+        d.classList.toggle("on", s.classList.contains("on"));
+        var p = s.getAttribute("aria-pressed");
+        if (p == null) d.removeAttribute("aria-pressed");
+        else d.setAttribute("aria-pressed", p);
       }
     }
 
@@ -2182,6 +2208,42 @@
     window.addEventListener("resize", measureTopbar);
     window.addEventListener("scroll", updateStuck, false);
     updateStuck();
+
+    /* ---------------- 一级菜单（大顶栏 + 吸顶条共用）：单人游戏 / 多人游戏 / 设置 ----------------
+       点击标题开合（互斥）；点菜单外或 Esc 收起；开关类（音效/特效）点了不收，
+       方便连拨；导航类（随机/汤库/AI 弹窗/未成年弹层）点了即收。
+       大顶栏与吸顶条的下拉各自独立开合；移动端吸顶面板里同一些类由 CSS 变成手风琴。 */
+    var KEEP_OPEN = { "btn-sound": 1, "btn-fx": 1 };
+    function closeDrops() {
+      $$(".nav-group.open").forEach(function (g) {
+        g.classList.remove("open");
+        var h = g.querySelector(".nav-head");
+        if (h) h.setAttribute("aria-expanded", "false");
+      });
+    }
+    $$(".nav-head").forEach(function (head) {
+      head.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var g = head.closest(".nav-group");
+        var willOpen = !g.classList.contains("open");
+        closeDrops();
+        if (willOpen) { g.classList.add("open"); head.setAttribute("aria-expanded", "true"); }
+        sfx("ui");
+      });
+    });
+    document.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (t && t.closest && t.closest(".nav-group")) {
+        /* 组内：点菜单项收起（开关类除外），点空白处保持展开 */
+        var item = t.closest(".nav-drop button[data-act], .nav-drop button[id]");
+        if (item && !KEEP_OPEN[item.dataset.act || item.id]) closeDrops();
+        return;
+      }
+      closeDrops();
+    });
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape") closeDrops();
+    });
 
     var startBtn = $("#btn-start");
     if (startBtn) startBtn.addEventListener("click", function () {

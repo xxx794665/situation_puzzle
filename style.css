@@ -181,11 +181,39 @@ body.topbar-stuck .topbar-compact {
     transition: max-height .26s ease, opacity .2s ease, margin-top .26s ease;
   }
   .topbar-compact.tc-open .tc-nav {
-    max-height: 320px;
+    max-height: 460px;
     opacity: 1;
     margin-top: 8px;
     padding-bottom: 2px;
   }
+}
+
+/* 移动端吸顶面板内的分级收纳（2026-09-29）：.nav-drop 从绝对下拉伸直为
+   手风琴——点分组标题在面板内展开/收起二级项，与顶栏共用同一套 .open 类；
+   桌面吸顶条（>860px）不加这层覆盖，直接复用顶栏同款下拉样式 */
+@media (max-width: 860px) {
+  .tc-nav .nav-group { flex-basis: 100%; flex-direction: column; }
+  .tc-nav > .btn { flex-basis: 100%; }
+  .tc-nav .nav-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .tc-nav .nav-drop {
+    position: static;
+    transform: none;
+    min-width: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+    padding: 0 0 0 10px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height .24s ease, opacity .2s ease;
+  }
+  .tc-nav .nav-group.open .nav-drop { max-height: 240px; opacity: 1; padding-bottom: 4px; }
 }
 
 /* ---------------- 吸顶栏下方的轮次 toast（多人游戏） ----------------
@@ -246,6 +274,46 @@ body.topbar-stuck .topbar-compact {
 }
 
 .top-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ---------- 顶栏一级菜单（2026-09-29 分级收纳）----------
+   单人游戏（随机一题/随机模式/汤库）、多人游戏（直达）、设置（AI 汤主/
+   音效/特效/未成年模式）。桌面与移动端同为点击展开下拉；吸顶紧凑条
+   用选择器拍平克隆，不受分组影响。 */
+.nav-group { position: relative; display: flex; }
+.nav-head .caret { font-size: 9px; opacity: .55; margin-left: 5px; }
+.nav-drop {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 168px;
+  padding: 10px;
+  border-radius: 13px;
+  border: 1px solid var(--line-2);
+  background: rgba(20, 14, 9, .97);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .55);
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease;
+}
+.nav-group.nav-end .nav-drop { left: auto; right: 0; }
+.nav-group.open .nav-drop { opacity: 1; transform: none; pointer-events: auto; }
+.nav-drop .btn { justify-content: flex-start; text-align: left; }
+.nav-minor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 4px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--line-2);
+}
+.nav-minor .minor-toggle .ic { margin-right: 5px; }
 
 /* ---------- 按钮 ---------- */
 .btn {
@@ -2765,16 +2833,7 @@ body.my-turn .askbar { border-color: var(--yes); box-shadow: 0 0 18px rgba(104, 
 .fbadge.fb-黄汤 { border-color: rgba(214, 158, 46, .55); color: #d69e2e; }
 .fbadge.fb-语言梗 { border-style: dotted; }
 
-/* 首页未成年模式开关行 */
-.minor-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-}
-.minor-row .minor-toggle .ic { margin-right: 5px; }
+/* 未成年模式开关（顶栏「设置」下拉内 + 建房房规） */
 .minor-toggle .ic svg { width: 15px; height: 15px; vertical-align: -2px; }
 .chip.minor-toggle {
   display: inline-flex;

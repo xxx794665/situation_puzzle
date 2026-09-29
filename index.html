@@ -66,12 +66,36 @@
       <p>海龟汤 · 一问一答熬真相</p>
     </div>
   </div>
+  <!-- ===== 一级菜单（2026-09-29 分级收纳）：单人游戏 / 多人游戏 / 设置 =====
+       旧顶栏 7 个玩法/设置混杂的平铺按钮收进三个分组：单人游戏下拉
+       （随机一题/随机模式/汤库）、多人游戏直达、设置下拉（AI 汤主/音效/
+       特效/未成年模式）。桌面与移动端同一套点击下拉；吸顶紧凑条照旧克隆。 -->
   <div class="top-actions">
-    <button type="button" class="btn ghost" id="btn-random">随机一题</button>
-    <button type="button" class="btn ghost" id="btn-random-mode"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="8.8" cy="8.8" r="1.15" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.2" cy="15.2" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.2" cy="8.8" r="1.15" fill="currentColor" stroke="none"/><circle cx="8.8" cy="15.2" r="1.15" fill="currentColor" stroke="none"/></svg></span> 随机模式</button>
-    <button type="button" class="btn ghost" id="btn-library"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5.5h3.8v14H5z"/><path d="M9.8 5.5h3.7v14H9.8z"/><path d="M14.6 6.7l3.7.8-2.9 12.6-3.7-.8"/></svg></span> 汤库</button>
-    <button type="button" class="btn ghost" id="btn-multi"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 11.2 12 4.6l7.5 6.6"/><path d="M6.4 10v8.9a1 1 0 0 0 1 1h9.2a1 1 0 0 0 1-1V10"/><path d="M10.2 20v-4.7a1.8 1.8 0 0 1 3.6 0V20"/></svg></span> 多人房间</button>
-    <button type="button" class="btn ghost" id="btn-ai" aria-pressed="false"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="8" width="14" height="10.8" rx="2.8"/><path d="M12 8V5.2"/><circle cx="12" cy="3.9" r="1.2" fill="currentColor" stroke="none"/><circle cx="9.2" cy="13.3" r="1" fill="currentColor" stroke="none"/><circle cx="14.8" cy="13.3" r="1" fill="currentColor" stroke="none"/><path d="M10 16.4h4"/></svg></span> AI 汤主</button>
+    <div class="nav-group">
+      <button type="button" class="btn ghost nav-head" aria-expanded="false" aria-haspopup="true">单人游戏<span class="caret" aria-hidden="true">▾</span></button>
+      <div class="nav-drop" role="group" aria-label="单人游戏">
+        <button type="button" class="btn ghost" id="btn-random">随机一题</button>
+        <button type="button" class="btn ghost" id="btn-random-mode"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="8.8" cy="8.8" r="1.15" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.2" cy="15.2" r="1.15" fill="currentColor" stroke="none"/><circle cx="15.2" cy="8.8" r="1.15" fill="currentColor" stroke="none"/><circle cx="8.8" cy="15.2" r="1.15" fill="currentColor" stroke="none"/></svg></span> 随机模式</button>
+        <button type="button" class="btn ghost" id="btn-library"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5.5h3.8v14H5z"/><path d="M9.8 5.5h3.7v14H9.8z"/><path d="M14.6 6.7l3.7.8-2.9 12.6-3.7-.8"/></svg></span> 汤库</button>
+      </div>
+    </div>
+    <button type="button" class="btn ghost" id="btn-multi"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 11.2 12 4.6l7.5 6.6"/><path d="M6.4 10v8.9a1 1 0 0 0 1 1h9.2a1 1 0 0 0 1-1V10"/><path d="M10.2 20v-4.7a1.8 1.8 0 0 1 3.6 0V20"/></svg></span> 多人游戏</button>
+    <div class="nav-group nav-end">
+      <button type="button" class="btn ghost nav-head" aria-expanded="false" aria-haspopup="true">设置<span class="caret" aria-hidden="true">▾</span></button>
+      <div class="nav-drop" role="group" aria-label="设置">
+        <button type="button" class="btn ghost" id="btn-ai" aria-pressed="false"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="8" width="14" height="10.8" rx="2.8"/><path d="M12 8V5.2"/><circle cx="12" cy="3.9" r="1.2" fill="currentColor" stroke="none"/><circle cx="9.2" cy="13.3" r="1" fill="currentColor" stroke="none"/><circle cx="14.8" cy="13.3" r="1" fill="currentColor" stroke="none"/><path d="M10 16.4h4"/></svg></span> AI 汤主</button>
+        <button type="button" class="btn ghost" id="btn-sound" aria-pressed="true"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.2v5.6h3.5L12.5 19V5L7.5 9.2z"/><path d="M15.5 9.3a4.4 4.4 0 0 1 0 5.4M18 6.8a8 8 0 0 1 0 10.4"/></svg></span> 音效</button>
+        <button type="button" class="btn ghost" id="btn-fx" aria-pressed="true"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.4 13.7 9l5.6 1.7-5.6 1.7L12 18l-1.7-5.6L4.7 10.7 10.3 9z"/><path d="m18.7 3.5.7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7z"/></svg></span> 特效</button>
+        <!-- 未成年模式从首页搬进设置组（ADR 0004 开关逻辑不变）：开免密、关走密码门 -->
+        <div class="nav-minor">
+          <button type="button" class="chip minor-toggle" id="btn-minor" aria-pressed="false">
+            <span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.8 4.8 6.4v5.2c0 4.3 3 7.4 7.2 8.6 4.2-1.2 7.2-4.3 7.2-8.6V6.4z"/><circle cx="12" cy="11" r="1.6"/><path d="M12 12.8v3.2"/></svg></span>
+            <span id="minor-toggle-text">未成年模式</span>
+          </button>
+          <span class="minor-note" id="minor-note">开启后隐藏红汤与黄汤</span>
+        </div>
+      </div>
+    </div>
     <!-- 音乐胶囊：music-dock 是胶囊本体的类名（边框 / 背景 / 圆角都挂在它身上），
          top-music 只是历史遗留的定位钩子。两个都要留着，否则胶囊边框不会出现。 -->
     <div class="top-music music-dock" id="music-dock" role="group" aria-label="音乐控制">
@@ -82,8 +106,6 @@
         <input type="range" class="dock-vol" id="vol" min="0" max="100" value="60" aria-label="音量" />
       </div>
     </div>
-    <button type="button" class="btn ghost" id="btn-sound" aria-pressed="true"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.2v5.6h3.5L12.5 19V5L7.5 9.2z"/><path d="M15.5 9.3a4.4 4.4 0 0 1 0 5.4M18 6.8a8 8 0 0 1 0 10.4"/></svg></span> 音效</button>
-    <button type="button" class="btn ghost" id="btn-fx" aria-pressed="true"><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.4 13.7 9l5.6 1.7-5.6 1.7L12 18l-1.7-5.6L4.7 10.7 10.3 9z"/><path d="m18.7 3.5.7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7z"/></svg></span> 特效</button>
   </div>
 </header>
 
@@ -112,28 +134,21 @@
         <h2>欢迎来到深海汤屋</h2>
         <p class="intro-lead">汤面（谜面）已经备好，你只能向汤主提问。<br />汤主只会回答三种话：<b class="c-yes">是</b>、<b class="c-no">不是</b>、<b class="c-irr">与此无关</b>。</p>
         <!-- 纯离线模式联动：本机没配 AI 汤主时由 app.js 显示，配上即隐（AI.onChange 同步刷新） -->
-        <p class="intro-offline hidden" id="intro-offline" role="note">纯离线模式：还没配置 AI 汤主。汤库里的题需要 AI 判定，已从抽取与筛选中隐藏；精品层由关键词汤主本地判定，照常可玩。点顶部「AI 汤主」可解锁全部题库与更懂人话的汤主。</p>
+        <p class="intro-offline hidden" id="intro-offline" role="note">纯离线模式：还没配置 AI 汤主。汤库里的题需要 AI 判定，已从抽取与筛选中隐藏；精品层由关键词汤主本地判定，照常可玩。点顶部「设置 → AI 汤主」可解锁全部题库与更懂人话的汤主。</p>
         <ul class="rules">
           <li><b>1.</b> 用提问一点点逼近真相，右侧备忘录可以随手记下推理。</li>
           <li><b>2.</b> 觉得想通了，就点「我要猜汤底」，用自己的话把推理讲清楚。</li>
           <li><b>3.</b> 提问越少，星级越高。汤底可以重熬，存档自动保存。</li>
           <li><b>4.</b> 精品汤单独挑选打磨，每一道都有完整汤面和汤底，可直接开问。</li>
-          <li><b>5.</b> 拿不定主意？点顶上的 <b>随机模式</b>，按题材和火候让汤主随手舀一碗。</li>
-          <li><b>6.</b> 嫌关键词太死板？点顶上的 <b><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="8" width="14" height="10.8" rx="2.8"/><path d="M12 8V5.2"/><circle cx="12" cy="3.9" r="1.2" fill="currentColor" stroke="none"/><circle cx="9.2" cy="13.3" r="1" fill="currentColor" stroke="none"/><circle cx="14.8" cy="13.3" r="1" fill="currentColor" stroke="none"/><path d="M10 16.4h4"/></svg></span> AI 汤主</b> 填上自己的模型 Key，汤主就换成大模型来听懂你的话——它读过汤面汤底，也绝不会把答案漏给你。</li>
+          <li><b>5.</b> 拿不定主意？点顶上「<b>单人游戏</b>」里的 <b>随机模式</b>，按题材和火候让汤主随手舀一碗。</li>
+          <li><b>6.</b> 嫌关键词太死板？点顶上「<b>设置</b>」里的 <b><span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="8" width="14" height="10.8" rx="2.8"/><path d="M12 8V5.2"/><circle cx="12" cy="3.9" r="1.2" fill="currentColor" stroke="none"/><circle cx="9.2" cy="13.3" r="1" fill="currentColor" stroke="none"/><circle cx="14.8" cy="13.3" r="1" fill="currentColor" stroke="none"/><path d="M10 16.4h4"/></svg></span> AI 汤主</b> 填上自己的模型 Key，汤主就换成大模型来听懂你的话——它读过汤面汤底，也绝不会把答案漏给你。</li>
         </ul>
         <div class="intro-actions">
           <button type="button" class="btn primary" id="btn-start">从第一题开始</button>
           <button type="button" class="btn ghost" id="btn-start-random">随便来一锅</button>
           <button type="button" class="btn ghost hidden" id="btn-resume">继续上一锅</button>
         </div>
-        <!-- 未成年模式（ADR 0004）：开启免密，关闭需密码（js/config.js）。只影响下一次抽题/选汤 -->
-        <div class="minor-row" id="minor-row">
-          <button type="button" class="chip minor-toggle" id="btn-minor" aria-pressed="false">
-            <span class="ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.8 4.8 6.4v5.2c0 4.3 3 7.4 7.2 8.6 4.2-1.2 7.2-4.3 7.2-8.6V6.4z"/><circle cx="12" cy="11" r="1.6"/><path d="M12 12.8v3.2"/></svg></span>
-            <span id="minor-toggle-text">未成年模式</span>
-          </button>
-          <span class="minor-note" id="minor-note">开启后隐藏红汤与黄汤</span>
-        </div>
+        <!-- 未成年模式开关已收进顶栏「设置」下拉（2026-09-29 分级收纳），首访一次性提示弹层不变 -->
       </div>
     </div>
 
