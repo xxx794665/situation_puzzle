@@ -16,7 +16,7 @@
 │   ├── config.js           # 前端配置（未成年模式密码等，可手改）
 │   ├── data.js             # 精品层前 20 题（源文件，可直接改）
 │   ├── data-more.js        # 精品层后 80 题（app.js 首屏后异步并入）
-│   ├── library.public.js   # 汤库 1942 题【构建产物，勿手改】
+│   ├── library.public.js   # 汤库 1942 题【构建产物，勿手改；按需加载不进首屏】
 │   ├── engine.js           # 判定内核：抽题/风味筛选/近期抽取记录/星级/猜底四级
 │   ├── ai.js               # 浏览器侧 AI 汤主（Key 只存本机）
 │   ├── audio.js            # Web Audio 程序化 BGM + 音效
@@ -41,7 +41,7 @@
 └── docs/                   # PROJECT.md（本文件）/ TASKS.md（任务索引）/ adr/ / 方案文档
 ```
 
-脚本加载顺序（`index.html`，全部 `defer`）：`gsap → config.js → data.js → data-more.js → library.public.js → engine → ai → audio → fx → transition → icons → net → room-ui → app`。
+脚本加载顺序（`index.html`，全部 `defer`）：`gsap → config.js → data.js → data-more.js → engine → ai → audio → fx → transition → icons → net → room-ui → app`。汤库 `library.public.js`（~2MB）2026-09-29 起不在此列：由 `app.js` 的 `ensureSoupLib` 按需加载（首屏后空闲预载，随机/汤库入口未就绪先等）。
 
 ## 数据管线
 

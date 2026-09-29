@@ -115,3 +115,6 @@ tools/flavor_20260929/in/
 # 连本机 CDP 调试端口 / 读本地报告路径的工具脚本，安全扫描按 SSRF/路径穿越
 # 拦截；属于一次性真机验证工具，报告（tools/_cdp_*.txt）已留档，脚本留本地。
 tools/cdp_*.py
+
+# ---- 移动端走查截图（2026-09-29）：本地留证，结论已进 FINDINGS.md，不进仓库 ----
+tools/mobile_walkthrough_20260929/*.png

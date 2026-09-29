@@ -118,10 +118,10 @@ body {
   margin: 0 auto;
 }
 
-/* 吸顶后收拢：藏副标题、收内边距，给正文让行 */
+/* 吸顶后收拢：只留一行导航（品牌行与音乐台让位），窄屏顶栏原本 200px+ 不能整条吸顶 */
 body.topbar-stuck .topbar { padding-top: 8px; padding-bottom: 8px; gap: 8px; backdrop-filter: blur(6px); }
-body.topbar-stuck .brand-txt p { display: none; }
-body.topbar-stuck .brand-ico { font-size: 24px; }
+body.topbar-stuck .brand,
+body.topbar-stuck .top-music { display: none; }
 
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-ico {
@@ -2181,6 +2181,8 @@ body.my-turn .askbar { border-color: var(--yes); box-shadow: 0 0 18px rgba(104, 
   /* 窄屏热区兑现 README 承诺：筛选 chips / 换 AI 汤主链接也到 44px */
   .chip { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; }
   .ai-link { display: inline-flex; align-items: center; min-height: 44px; }
+  /* 放弃印章不被 flex 压瘪裁字（压瘪时 scrollWidth > clientWidth） */
+  .askbar .giveup-btn { flex: 0 0 auto; }
   #room-q-input, #q-input, #guess-input, #rguess-input { font-size: 16px; }
   .room-player { flex-wrap: wrap; }
   .rp-kick { min-height: 36px; }

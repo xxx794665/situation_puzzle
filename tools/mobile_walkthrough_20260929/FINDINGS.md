@@ -50,3 +50,25 @@
 - iOS Safari 实际滑动流畅度、120Hz 发热（省电档实测）
 - PWA 添加到主屏幕 + 图标 + 独立窗口
 - 微信内置浏览器能玩（best-effort）
+
+## 修复与复验记录（2026-09-29 同日）
+
+**P0-1 机制结论（修正）**：透明弹窗的成因是「后台标签暂停 CSS 动画」——`.modal-wrap` 的
+入场动画从 opacity:0 起步，动画暂停即停在透明，而壳仍在全屏拦截点击。真机前台用户不会
+遇到；但与 `.panel` 既有注释「部分浏览器会把面板停在透明」同源，属健壮性缺口。
+修复：拆除 `.modal-wrap` 的 fade 与 `.modal` 的 rise-in 动画（显隐只靠 `.hidden`），
+复验 opacity 恒 1、显隐确定。
+
+**P0-2**：`body:not(.room-mode) .room-chat { display:none }`（浮层不跟人回家）+
+收起药丸 bottom 78px（提问栏上方）+ 触屏进房默认收起（`chatOpen: !isTouch()`）。
+复验：非房间屏 display:none ✓、药丸 bottom 78px ✓。
+
+**P1 复验（CSS 计算样式）**：顶栏 sticky ✓、吸顶收拢 205→112px（隐藏品牌行与音乐台）✓、
+chips min-height 44px（实际高 44）✓、.btn 44px ✓、正文面板 maxWidth 640px（834 档）✓、
+1366 档不限宽 ✓、放弃按钮 white-space nowrap ✓（≤860 下另加 `.askbar .giveup-btn{flex:0 0 auto}`
+压过 `.askbar .btn{flex:1 1 auto}`）、音量滑条触屏加高 ✓。
+
+**验证环境限制**：IAB 面板被桌面遮挡时 Chromium 冻结 rAF（visibilityState=visible 但
+rAF 不触发）→ GSAP 转场时间线冻结 → sceneWipe 的 onSwap 不回调 → 无法程序化切屏。
+转场类交互的复跑留待真机 / 前台会话；切换机制未被本次修复触碰（修复前走查已实证可用）。
+触屏默认收起聊天（`chatOpen: !isTouch()`）在模拟器（pointer:fine）也无法触发，留真机。

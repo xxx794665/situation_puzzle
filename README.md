@@ -195,6 +195,14 @@
 - 软键盘弹出时收起音乐台和已展开的房间聊天，并缩短对话区。
 - `prefers-reduced-motion` 关掉动效与转场。
 
+2026-09-29 移动端走查（七档视口 × 六屏程序化审计，证据在 `tools/mobile_walkthrough_20260929/`）后新增：
+
+- 顶栏吸顶：下滚后收成一行导航（品牌行与音乐台让位，205px → 112px），汤库长列表也能随时切屏。
+- 正文列限宽：iPad 单列档（834~1180）正文面板限宽 640px 居中，一行不再 50~70 字。
+- 房间聊天浮层只属于房间屏（切到单人 / 汤库自动消失）；收起药丸抬到提问栏上方；触屏进房默认收起成药丸。
+- 弹窗不再播「从透明起步」的入场动画——后台标签 / 部分浏览器会把它停在透明，变成看不见却拦截点击的全屏层；显隐只靠 `display`。
+- 触屏（`pointer:coarse`）与窄屏档：筛选 chips / 小按钮热区统一 ≥44px，音量滑条加高轨道放大拇指，「放弃」印章不再被 flex 压瘪裁字。
+
 ### 手机端省电档（`@media (pointer: coarse)` + `SoupFx` 内 LITE）
 
 针对「120Hz ProMotion 手机上不开特效都发烫、开特效卡」的反馈（iPhone 16 Pro）。根因是所有无限循环动画和 rAF 在 120Hz 下按 120 次/秒计费，而 `text-shadow` / `box-shadow` / `filter` / `background-position` 这几类关键帧没法走 GPU 合成，等于常驻重画整块内容。触屏设备一律：
@@ -229,7 +237,7 @@
 | 离线 | Service Worker（缓存名 `deepsea-soup-v19`，HTML/CSS/JS 走 network-first、图片字体走 cache-first，仅 https 下注册）+ Web App Manifest |
 | 联机 | Cloudflare Workers + Durable Objects（SQLite 持久化），HTTP 1.5s 增量轮询 |
 
-脚本顺序：`gsap.min.js` → `config.js` → `data.js` → `library.public.js` → `engine.js` → `ai.js` → `audio.js` → `fx.js` → `transition.js` → `icons.js` → `net.js` → `room-ui.js` → `app.js`（全部 `defer`）。精品题后 80 道在 `data-more.js`，首屏后由 `app.js` 异步注入并入（精品层 20 → 100 道）。
+脚本顺序：`gsap.min.js` → `config.js` → `data.js` → `engine.js` → `ai.js` → `audio.js` → `fx.js` → `transition.js` → `icons.js` → `net.js` → `room-ui.js` → `app.js`（全部 `defer`）。精品题后 80 道在 `data-more.js`，首屏后由 `app.js` 异步注入并入（精品层 20 → 100 道）。**汤库 1942 题（`library.public.js`，约 2MB）不随首屏加载**（2026-09-29 移动端瘦身）：首屏后空闲预载，随机/汤库入口未就绪时先等，加载失败退回精品层照常可玩。
 
 ---
 
@@ -251,7 +259,7 @@
 ├── js/
 │   ├── config.js                 # 前端配置（未成年模式密码，可手改）
 │   ├── data.js / data-more.js    # 精品 100（后 80 道异步并入）
-│   ├── library.public.js         # 汤库 1942（含汤底，勿手改，由 tools/build_worker_data.js 生成）
+│   ├── library.public.js         # 汤库 1942（含汤底，勿手改，构建产物；按需加载不进首屏）
 │   ├── engine.js                 # 单人判定（抽题 / 风味筛选 / 近期抽取 / 猜底四级 / 星级）
 │   ├── ai.js                     # 浏览器侧 AI 汤主
 │   ├── audio.js / fx.js          # 程序化音乐 / 雨夜特效（含手机 LITE 档）

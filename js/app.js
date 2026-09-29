@@ -280,9 +280,10 @@
   /* 汤库列表的数据源：汤库层 + 精品层 */
   function mergedLib() {
     var core = (typeof PUZZLES !== "undefined" && PUZZLES && PUZZLES.length) ? PUZZLES : [];
-    var sig = LIB.length + "|" + core.length;
+    var lib = soupLib();
+    var sig = lib.length + "|" + core.length;
     if (mergedCache && mergedSig === sig) return mergedCache;
-    var out = LIB.slice();
+    var out = lib.slice();
     for (var i = 0; i < core.length; i++) {
       if (core[i] && core[i].id) out.push(coreAsLib(core[i]));
     }
@@ -291,7 +292,36 @@
     return out;
   }
 
-  var LIB = window.SOUP_LIBRARY || [];
+  /* 汤库 1942 题约 2MB，是移动端首载最大的单项（2026-09-29 起按需加载）：
+     首屏不加载；页面 load 后空闲预载；随机/汤库入口未就绪时先等再抽。
+     读数一律走 soupLib()（实时读全局），绝不缓存空数组。 */
+  function soupLib() {
+    return (window.SOUP_LIBRARY && window.SOUP_LIBRARY.length) ? window.SOUP_LIBRARY : [];
+  }
+
+  var libLoadPromise = null;
+  function ensureSoupLib() {
+    if (window.SOUP_LIBRARY && window.SOUP_LIBRARY.length) return Promise.resolve();
+    if (!libLoadPromise) {
+      libLoadPromise = new Promise(function (resolve, reject) {
+        var s = document.createElement("script");
+        s.src = "js/library.public.js";
+        s.onload = function () { resolve(); };
+        s.onerror = function () { libLoadPromise = null; reject(new Error("LIB_LOAD_FAIL")); };
+        (document.body || document.head).appendChild(s);
+      });
+    }
+    return libLoadPromise;
+  }
+
+  function preloadSoupLib() {
+    setTimeout(function () {
+      var idle = window.requestIdleCallback || function (f) { setTimeout(f, 1); };
+      idle(function () { ensureSoupLib().catch(function () { /* 失败由各入口的等待兜底 */ }); });
+    }, 2000);
+  }
+  if (document.readyState === "complete") preloadSoupLib();
+  else window.addEventListener("load", preloadSoupLib);
 
   var libState = {
     page: 1,
@@ -308,8 +338,9 @@
 
   function libPuzzle(id) {
     if (!id) return null;
-    for (var i = 0; i < LIB.length; i++) {
-      if (LIB[i].id === id) return LIB[i];
+    var lib = soupLib();
+    for (var i = 0; i < lib.length; i++) {
+      if (lib[i].id === id) return lib[i];
     }
     return null;
   }
@@ -1545,10 +1576,14 @@
     /* 库题继续从库里抽，精品题继续从精品层抽。
        「下一锅」也是随机抽取：同样走未成年模式 + 近期抽取记录（Q15/Q18）。 */
     var lib = isLibPid(state.pid);
+    if (lib && !soupLib().length) {
+      toast("正在开汤库…");
+      return ensureSoupLib().catch(function () { }).then(nextPuzzle);
+    }
     var sel = flavorSel("", "", []);
     var ex = E.recentExcludes();
     var nxt = lib
-      ? E.drawFromLibrary(LIB, { hasTruth: true, flavor: sel, minor: minorOn() }, ex)
+      ? E.drawFromLibrary(soupLib(), { hasTruth: true, flavor: sel, minor: minorOn() }, ex)
       : E.drawFrom(E.pool({ flavor: sel, minor: minorOn() }), ex);
     if (nxt) E.recordRecent(nxt.id);
     closeModal("#modal-end");
@@ -1742,10 +1777,14 @@
      未成年模式与风味筛选（默认不限）在这里同样生效；近期抽过的题优先避开。
      无筛选的随机入口不选语言梗题（默认禁用，见 ADR 0002）。 */
   function randomAnywhere() {
+    /* 按体量加权要拿全库体量：汤库还没加载就先等（加载失败则退回精品层） */
+    if (!soupLib().length) {
+      return ensureSoupLib().catch(function () { }).then(function () { return randomAnywhere(); });
+    }
     var sel = flavorSel("", "", []);
     var minor = minorOn();
     var ex = E.recentExcludes();
-    var libList = (typeof LIB !== "undefined" && LIB && LIB.length) ? LIB : [];
+    var libList = soupLib();
     var corePool = E.pool({ flavor: sel, minor: minor });
     var libAvail = libList.length ? E.drawFromLibrary(libList, { hasTruth: true, flavor: sel, minor: minor }, ex) : null;
     var coreAvail = corePool.length ? E.drawFrom(corePool, ex) : null;
@@ -1942,6 +1981,10 @@
   }
 
   function openLibrary() {
+    if (!soupLib().length) {
+      toast("正在开汤库…");
+      return ensureSoupLib().catch(function () { }).then(openLibrary);
+    }
     setScene("menu");
     leaveRoomScreen();
     $("#screen-intro").classList.add("hidden");
@@ -1965,6 +2008,16 @@
   /* ---------------- 事件绑定 ---------------- */
 
   function bind() {
+    /* 顶栏吸顶收拢：滚过一点就收窄（P1-3，样式见 body.topbar-stuck） */
+    var lastStuck = false;
+    window.addEventListener("scroll", function () {
+      var s = (window.scrollY || document.documentElement.scrollTop || 0) > 12;
+      if (s !== lastStuck) {
+        lastStuck = s;
+        document.body.classList.toggle("topbar-stuck", s);
+      }
+    }, false);
+
     var startBtn = $("#btn-start");
     if (startBtn) startBtn.addEventListener("click", function () {
       /* 「从第一题开始」按顺序取第一锅符合当前口径（未成年模式）的精品题 */

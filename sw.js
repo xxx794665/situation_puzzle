@@ -5,7 +5,7 @@
  *   - 页面 / 样式 / 脚本 / manifest 走「网络优先」，保证改完就生效
  *   - 图片 / 字体走「缓存优先」，二次访问秒开
  * ============================================================ */
-var CACHE = "deepsea-soup-v19";
+var CACHE = "deepsea-soup-v20";
 var SHELL = [
   "./",
   "index.html",
@@ -14,7 +14,8 @@ var SHELL = [
   "assets/vendor/gsap.min.js",
   "js/config.js",
   "js/data.js",
-  "js/library.public.js",
+  /* js/library.public.js（~2MB）已改为按需加载：不进预缓存清单，
+     走 fetch 的 network-first 运行时缓存（.js 命中规则），离线二次访问仍可用 */
   "js/engine.js",
   "js/ai.js",
   "js/audio.js",

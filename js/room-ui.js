@@ -92,7 +92,8 @@
     cooldownTimer: 0,
     askBusy: false,
     chatSeen: 0,
-    chatOpen: true,    /* 默认展开在右下角；点标题才收起 */
+    /* 触屏默认收起成药丸：展开层 300px 高会盖住房间操作区（走查 P0-2）；桌面保持展开 */
+    chatOpen: !isTouch(),
     timerTimer: 0,      /* 顺序提问 90s 倒计时的 setInterval 句柄 */
     seenTurn: "",       /* 已经提醒过的轮次，避免每次轮询都再响一次 */
     /* ---- 多人「私有猜底」大改（2026-09-25）---- */
