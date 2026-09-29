@@ -244,7 +244,10 @@ function extractText(kind, json) {
     }
     return out;
   }
-  var ch = (json.choices || [])[0] || {};
+  /* 兼容非标准信封：部分中转把 OpenAI 结构再包一层 {"data":{...}}
+     （如 cline.bot），正文位置不变，剥一层再读。 */
+  var choices = (json.data && typeof json.data === "object" && json.data.choices) ? json.data.choices : (json.choices || []);
+  var ch = choices[0] || {};
   var msg = ch.message || {};
   /* OpenAI 系：content 是字符串直接拿 */
   if (typeof msg.content === "string" && msg.content.trim()) return msg.content;
@@ -357,10 +360,21 @@ export async function callModel(cfg, system, user) {
       if (e && String(e.message) === "GATEWAY_BLOCKED") throw e;
       /* 本机地址对机房永远不可达，重试也没意义 */
       if (e && String(e.message) === "LOCAL_ONLY_URL") throw e;
-      /* 空正文重试一次，多半是思考模型把正文写进了思考字段或 max_tokens 截断 */
+      /* 思考模型经部分中转（cline.bot）：思考烧光 max_tokens、正文为空时
+         上游报 500 "empty response content"——重试时放宽一倍额度再试 */
+      if (e && /HTTP_5\d\d/i.test(String(e.message)) && /empty response content/i.test(String(e.message))) {
+        cfg = withLargerBudget(cfg);
+      }
     }
   }
   throw lastErr;
+}
+
+/* 截断/空正文重试时临时放宽 maxTokens（与浏览器侧 js/ai.js 同口径） */
+function withLargerBudget(cfg) {
+  var c = Object.assign({}, cfg);
+  c.maxTokens = Math.min(4000, Math.max(Number(cfg.maxTokens) || 1200, 800) * 2);
+  return c;
 }
 
 async function callModelOnce(cfg, system, user) {

@@ -542,7 +542,7 @@
     if (err.code === "network") {
       var m = String(err.message || "");
       if (/failed to fetch|networkerror|load failed|fetch failed/i.test(m)) {
-        return "浏览器连不上这个地址：多半是对方没开 CORS 跨域（面板里换 DeepSeek 等预设服务商，或自建代理），也可能是地址写错或断网";
+        return "浏览器连不上这个地址：多半是对方没开 CORS 跨域。直连失败后会自动改走你自己的 Worker 中转（soup-room /api/ai-proxy），若此处仍报错，请检查地址是否写错、Key 是否有效，或 Worker 是否已部署";
       }
       return err.message || "网络请求失败";
     }
@@ -591,7 +591,58 @@
     });
   }
 
-  var transport = httpTransport;
+  /* ---------------- CORS 反代降级（2026-09-29） ----------------
+   * 很多上游 AI / 中转站没开浏览器跨域（无 Access-Control-Allow-Origin），
+   * 直连会以 network 错误失败。捕获后自动改走自家 Worker 的
+   * /api/ai-proxy 透明转发（服务端转发不受 CORS 限制），并把本会话标记为
+   * 「优先中转」，避免每次都白付一次直连失败的延迟。
+   * Key 只经自己部署的 Worker（见 js/net.js 基地址）转发，Worker 不落盘。 */
+  var preferProxy = false;
+
+  function proxyBase() {
+    var N = root.SoupNet;
+    return (N && typeof N.baseUrl === "function") ? N.baseUrl() : "";
+  }
+
+  function proxyTransport(req) {
+    var base = proxyBase();
+    if (!base) return Promise.reject(aiError("network", "联机服务未配置，无法走 AI 中转"));
+    return root.fetch(base + "/api/ai-proxy", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        url: req.url,
+        headers: req.headers,
+        body: req.body,
+        timeoutMs: req.timeoutMs || DEFAULTS.timeoutMs
+      })
+    }).then(function (res) {
+      return res.text().then(function (t) {
+        /* 代理自身的错误（限流/地址被拒/上游不可达）：转成 network 错误上抛 */
+        if (res.status === 429 || res.status === 400 || res.status === 413 || res.status === 502) {
+          var j = null;
+          try { j = JSON.parse(t); } catch (e) { j = null; }
+          if (j && j.error) throw aiError("network", "AI 中转：" + (j.note || j.error));
+        }
+        return { status: res.status, text: t };
+      });
+    }, function (err) {
+      throw aiError("network", "AI 中转不可达：" + ((err && err.message) || ""));
+    });
+  }
+
+  function autoTransport(req) {
+    if (preferProxy) return proxyTransport(req);
+    return httpTransport(req).catch(function (err) {
+      if (err && err.code === "network" && proxyBase()) {
+        preferProxy = true;
+        return proxyTransport(req);
+      }
+      throw err;
+    });
+  }
+
+  var transport = autoTransport;
 
   function setTransport(fn) {
     transport = typeof fn === "function" ? fn : httpTransport;
@@ -650,7 +701,9 @@
       }
       return out;
     }
-    var ch = (json.choices || [])[0] || {};
+    /* 兼容非标准信封：部分中转把 OpenAI 结构再包一层 {"data":{...}}
+       （如 cline.bot），正文位置不变，剥一层再读。 */
+    var ch = ((json.data && typeof json.data === "object" && json.data.choices) ? json.data.choices : (json.choices || []))[0] || {};
     var msg = ch.message || {};
     if (typeof msg.content === "string" && msg.content.trim()) return msg.content;
     if (Array.isArray(msg.content)) {
@@ -685,7 +738,8 @@
      （主人反馈的「像漏了半截思维链」的另一种来源）。 */
   function isTruncated(cfg, json) {
     if (!json || cfg.kind === "anthropic") return false;
-    var ch = (json.choices || [])[0] || {};
+    var choices = (json.data && typeof json.data === "object" && json.data.choices) ? json.data.choices : (json.choices || []);
+    var ch = choices[0] || {};
     return String(ch.finish_reason || "").toLowerCase() === "length";
   }
 
@@ -693,6 +747,13 @@
     var req = buildRequest(cfg, system, user);
     return transport(req).then(function (res) {
       if (!res || res.status < 200 || res.status >= 300) {
+        var bodyText = (res && res.text) ? String(res.text) : "";
+        /* 思考型模型经部分中转（如 cline.bot）：思考烧光 max_tokens、正文
+           为空时，上游以 500 "empty response content" 报错——本质是截断，
+           归入 truncated 走既有的「放宽一倍重试」路径。 */
+        if (res && res.status >= 500 && /empty response content/i.test(bodyText)) {
+          throw aiError("truncated", "模型思考烧光了 maxTokens（" + cfg.maxTokens + "），正文为空");
+        }
         throw aiError("http", "接口返回 " + ((res && res.status) || "?") + (res && res.text ? "：" + shortBody(res.text) : ""));
       }
       var json = null;
@@ -824,7 +885,7 @@
     judgeGuess: judgeGuess,
     test: test,
     __setTransport: setTransport,
-    __resetTransport: function () { transport = httpTransport; }
+    __resetTransport: function () { transport = autoTransport; }
   };
 
   root.SoupAI = api;

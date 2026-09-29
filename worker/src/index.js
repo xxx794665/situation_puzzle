@@ -19,6 +19,8 @@ import {
 } from "./engine.js";
 import { getPuzzle as _get } from "./engine.js";
 import { doRpc } from "./do-rpc.js";
+import { publicUrlViolation } from "./url-guard.js";
+import { proxyFetch } from "./ai-proxy.js";
 const allPuzzleIds = _allIds;
 const corePuzzleIds = _coreIds;
 const publicPuzzle = _pub;
@@ -54,6 +56,35 @@ function rateLimited(ip) {
 
 const CODE_LEN = 6;
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; /* 去掉易混 I/O/0/1 */
+
+/* ---------- AI 中转限流与约束（/api/ai-proxy 用） ---------- */
+const AI_PROXY_DAILY = 300;
+const aiProxyHits = new Map();
+const AI_HEADER_ALLOW = [
+  "content-type",
+  "authorization",
+  "x-api-key",
+  "anthropic-version",
+  "anthropic-dangerous-direct-browser-access",
+  "accept"
+];
+const AI_BODY_MAX = 65536;
+const AI_TEXT_MAX = 1048576;
+
+function aiProxyLimited(ip) {
+  const key = todayKey() + "|" + ip;
+  const rec = aiProxyHits.get(key);
+  const n = rec ? rec.n : 0;
+  if (n >= AI_PROXY_DAILY) return true;
+  aiProxyHits.set(key, { n: n + 1, at: Date.now() });
+  if (aiProxyHits.size > 5000) {
+    const today = todayKey();
+    for (const k of aiProxyHits.keys()) {
+      if (k.indexOf(today + "|") !== 0) aiProxyHits.delete(k);
+    }
+  }
+  return false;
+}
 
 function makeRoomCode() {
   let out = "";
@@ -131,6 +162,49 @@ export default {
 
     if (path === "/api/health") {
       return reply({ ok: true, service: "soup-room", at: Date.now() });
+    }
+
+    /* ---------- AI 汤主透明代理（前端 CORS 反代，2026-09-29） ----------
+     * 很多上游 AI（含各类中转站）没开浏览器跨域，前端直连会以 network
+     * 错误失败；前端捕获后自动降级走这里。透传 {url, headers, body}：
+     *   · url 经 publicUrlViolation 白名单校验（仅 http/https 公网地址，
+     *     拒绝环回/私网/链路本地/保留地址，防 SSRF）；
+     *   · 请求头只转发安全白名单（鉴权三件套 + content-type）；
+     *   · 上行 ≤64KB、下行截断 ≤1MB、超时 ≤45s；
+     *   · 每 IP 每天限 300 次（一局问答 ≈ 数十次调用）。
+     * Key 只经自家 Worker 转发，不落盘、不打日志。 */
+    if (path === "/api/ai-proxy" && request.method === "POST") {
+      const ip = request.headers.get("cf-connecting-ip") || "unknown";
+      if (aiProxyLimited(ip)) {
+        return reply({ error: "RATE_LIMITED", note: "今天的 AI 中转调用有点多，明天再试。" }, 429);
+      }
+      let body = {};
+      try { body = await request.json(); } catch (e) { body = {}; }
+      const headers = {};
+      for (const k of AI_HEADER_ALLOW) {
+        if (body.headers && body.headers[k] != null) headers[k] = String(body.headers[k]);
+      }
+      const payload = JSON.stringify(body.body || {});
+      if (payload.length > AI_BODY_MAX) return reply({ error: "PAYLOAD_TOO_LARGE" }, 413);
+      /* 出站硬校验（SSRF 防护）：只放行 http/https 公网地址，
+         拒绝环回/私网/链路本地/保留地址；执行在 ai-proxy.js */
+      const upstream = String(body.url || "");
+      const violation = publicUrlViolation(upstream);
+      if (violation) return reply({ error: "BAD_UPSTREAM_URL", note: violation }, 400);
+      const timeoutMs = Math.min(Number(body.timeoutMs) || 40000, 45000);
+      try {
+        const out = await proxyFetch(upstream, headers, payload, timeoutMs);
+        return new Response(out.text, {
+          status: out.status,
+          headers: Object.assign({
+            "content-type": out.contentType || "application/json; charset=utf-8",
+            "cache-control": "no-store"
+          }, corsHeaders(env, origin))
+        });
+      } catch (e) {
+        const msg = String((e && e.message) || e).slice(0, 200);
+        return reply({ error: "UPSTREAM_UNREACHABLE", note: msg }, 502);
+      }
     }
 
     /* 题面清单：只给汤面，**绝不含汤底**（房主选汤用）
