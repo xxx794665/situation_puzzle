@@ -276,6 +276,10 @@
   function leaveRoom() {
     stopWatch();
     stopQaScroll();
+    /* 轮次倒计时的 interval 由 render 补挂；离房后不再有 render，
+       不清的话会一直 tick 到 deadline（≤90s），顺带把轮次 toast 也收掉 */
+    if (R.timerTimer) { clearInterval(R.timerTimer); R.timerTimer = 0; }
+    hideTurnToast();
     /* 先通知服务器把座位真的清掉，别人视角立刻看不到这个人；
        网络失败也继续清本地，避免自己被卡在旧房号里。 */
     var done = (N && N.leaveRoom) ? N.leaveRoom() : Promise.resolve();
@@ -954,18 +958,97 @@
     if (!el) return;
     if (R.timerTimer) { clearInterval(R.timerTimer); R.timerTimer = 0; }
     var show = !!(s && s.phase === "playing" && s.turnDeadline);
-    if (!show) { el.classList.add("hidden"); el.innerHTML = ic("hourglass") + " 90s"; return; }
+    if (!show) { el.classList.add("hidden"); el.innerHTML = ic("hourglass") + " 90s"; hideTurnToast(); return; }
     el.classList.remove("hidden");
+    var who = (s.players || []).filter(function (p) { return p.uid === s.turnUid; })[0];
+    var mine = s.turnUid === myUid(s);
+    toastCtx = { s: s, who: who, mine: mine };
     var tick = function () {
       var left = Math.ceil(((s.turnDeadline || 0) - Date.now()) / 1000);
       if (left < 0) left = 0;
       el.innerHTML = ic("hourglass") + " " + left + "s";
       el.classList.toggle("warn", left <= 10);
       el.classList.toggle("urgent", left <= 5);
+      /* 吸顶栏下方的轮次 toast 与头部倒计时同秒同源 */
+      paintTurnToast(s, left, who, mine);
       if (left <= 0 && R.timerTimer) { clearInterval(R.timerTimer); R.timerTimer = 0; }
     };
     tick();
     R.timerTimer = setInterval(tick, 1000);
+  }
+
+  /* ---------------- 吸顶栏下方的轮次 toast（2026-09-29） ----------------
+     房间头部的轮次徽章/倒计时会随页面滚走：手机上翻问答记录时看不到
+     轮到谁、还剩几秒。一颗 fixed 圆角胶囊钉在紧凑吸顶条正下方
+     （topbar-stuck 下滚后才出现——页面在顶部时房间头部本来可见），
+     复用 paintTurnTimer 的 1s tick，与头部倒计时永远同秒同源。 */
+  /* 最近一次 tick 的轮次上下文：topbar-stuck 翻转时立即重画，不等下一秒 */
+  var toastCtx = null;
+
+  function turnToastEl() {
+    var t = document.getElementById("turn-toast");
+    if (t) return t;
+    t = document.createElement("div");
+    t.id = "turn-toast";
+    t.className = "turn-toast";
+    t.setAttribute("role", "timer");
+    t.classList.add("hidden");
+    document.body.appendChild(t);
+    /* 紧凑条高度变化（展开面板/视口改变）时跟着挪；观察不到就退化为每秒对齐 */
+    var bar = document.querySelector(".topbar-compact");
+    if (bar && typeof ResizeObserver === "function") {
+      new ResizeObserver(positionTurnToast).observe(bar);
+    }
+    /* topbar-stuck 切换时立即显隐，不等下一秒 tick */
+    if (typeof MutationObserver === "function") {
+      new MutationObserver(syncTurnToastVisible).observe(document.body, {
+        attributes: true, attributeFilter: ["class"]
+      });
+    }
+    return t;
+  }
+
+  function positionTurnToast() {
+    var t = document.getElementById("turn-toast");
+    if (!t || t.classList.contains("hidden")) return;
+    var bar = document.querySelector(".topbar-compact");
+    var h = (bar && bar.offsetHeight) ? bar.offsetHeight : 58;
+    t.style.top = (h + 8) + "px";
+  }
+
+  function syncTurnToastVisible() {
+    var t = document.getElementById("turn-toast");
+    if (!t || !toastCtx) return;
+    var stuck = document.body.classList.contains("topbar-stuck");
+    if (!stuck) { t.classList.add("gone"); return; }
+    /* 立即重画：把 tick 间隔内的空窗补掉 */
+    var left = Math.max(0, Math.ceil((((toastCtx.s || {}).turnDeadline) || 0) - Date.now()) / 1000);
+    paintTurnToast(toastCtx.s, Math.ceil(left), toastCtx.who, toastCtx.mine);
+  }
+
+  function hideTurnToast() {
+    toastCtx = null;
+    var t = document.getElementById("turn-toast");
+    if (!t) return;
+    t.classList.add("hidden");
+    t.classList.add("gone");
+  }
+
+  function paintTurnToast(s, left, who, mine) {
+    var t = turnToastEl();
+    var stuck = document.body.classList.contains("topbar-stuck");
+    t.classList.toggle("hidden", !stuck);
+    t.classList.toggle("gone", !stuck);
+    if (!stuck) return;
+    t.classList.toggle("mine", !!mine);
+    t.classList.toggle("warn", left <= 10 && left > 5);
+    t.classList.toggle("urgent", left <= 5);
+    t.innerHTML = ic("hourglass") + " <b>" +
+      (mine
+        ? "该你问了"
+        : "轮到 #" + (s.turnSeat || seatOf(s, s.turnUid)) + " " + esc(who ? who.nickname : "?")) +
+      '</b><span class="tt-sep">·</span><span class="tt-left">' + left + "s</span>";
+    positionTurnToast();
   }
 
   /* 说破排行榜（全员揭底 / 投票放弃时同屏展示）：金銀銅牌 + 未说破灰条，逐行华丽入场；

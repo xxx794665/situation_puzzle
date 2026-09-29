@@ -188,6 +188,43 @@ body.topbar-stuck .topbar-compact {
   }
 }
 
+/* ---------------- 吸顶栏下方的轮次 toast（多人游戏） ----------------
+   fixed 圆角胶囊，钉在紧凑吸顶条正下方（top 由 room-ui 按条高实测设置，
+   紧凑条展开面板时 ResizeObserver 跟着挪）。页面在顶部时房间头部本来就
+   看得见轮次，只有下滚（topbar-stuck）后才浮出，随条走、不挡操作。 */
+.turn-toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 44;              /* 紧凑条 45 之下、弹窗 80 之下 */
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #e8dcc8;
+  background: rgba(13, 10, 8, .93);
+  border: 1px solid rgba(169, 123, 56, .45);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .4);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  transition: top .2s ease, opacity .18s ease;
+}
+.turn-toast.hidden { display: none; }
+.turn-toast.gone { opacity: 0; }
+.turn-toast .ic { font-size: 14px; color: var(--broth-2); }
+.turn-toast b { font-weight: 600; }
+.turn-toast .tt-sep { opacity: .5; }
+.turn-toast .tt-left { color: var(--yes); }
+.turn-toast.warn .tt-left { color: var(--part); }
+.turn-toast.urgent .tt-left { color: #ffb3a8; animation: timerPulse 1s ease-in-out infinite; }
+.turn-toast.mine { border-color: rgba(246, 207, 144, .6); }
+.turn-toast.mine b { color: var(--broth-2); }
+
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-ico {
   font-size: 30px;
