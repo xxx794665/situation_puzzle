@@ -18,7 +18,7 @@
   "use strict";
 
   /* ---- 配置：部署 Worker 后把地址填这里（或运行时用 SoupNet.setBase() 覆盖） ---- */
-  var DEFAULT_BASE = "https://soup-room.57gqq9hsq.workers.dev";  /* wrangler deploy 已上线 */
+  var DEFAULT_BASE = "https://soup-room.249939260.workers.dev";  /* 本账号 wrangler deploy */
   var STORE_KEY = "soupnet.v1";
   /* 1.5s 轮询：服务端开了增量快路径（rev 未变只回几十字节），
      频率提上来也不会把响应体撑大，而延迟直接砍一半。 */
