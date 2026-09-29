@@ -2008,15 +2008,85 @@
   /* ---------------- 事件绑定 ---------------- */
 
   function bind() {
-    /* 顶栏吸顶收拢：滚过一点就收窄（P1-3，样式见 body.topbar-stuck） */
+    /* ---------------- 顶栏吸顶（2026-09-29 重影修复） ----------------
+       大顶栏已是普通文档流（style.css 同步改），随页面自然滚走；
+       吸顶导航 = 覆盖式紧凑条（.topbar-compact，fixed 不占布局流）。
+       旧版在同一根 sticky 顶栏上 display:none 品牌行：移动端一次切换
+       整页内容瞬移 200px+，滚动被拉回阈值附近再反向切换——边界处两种
+       布局交替抽搐（重影）。覆盖层方案从机制上消灭这个布局位移。 */
+    var topbarEl = $(".topbar");
+    var compactBar = null;
+    var tbH = 90;
     var lastStuck = false;
-    window.addEventListener("scroll", function () {
-      var s = (window.scrollY || document.documentElement.scrollTop || 0) > 12;
+
+    /* 克隆大顶栏的导航按钮（跳过音乐台——吸顶态本来就不显示它）；
+       克隆体不带 id，点击转发给原按钮，让原有绑定/音效/状态逻辑原样生效 */
+    function buildCompactBar() {
+      if (!topbarEl || compactBar) return;
+      compactBar = document.createElement("header");
+      compactBar.className = "topbar-compact";
+      compactBar.setAttribute("aria-label", "吸顶导航");
+      var actions = topbarEl.querySelector(".top-actions");
+      var kids = actions ? actions.children : [];
+      for (var i = 0; i < kids.length; i++) {
+        var src = kids[i];
+        if (!src.classList.contains("btn") || !src.id) continue;
+        var b = src.cloneNode(true);
+        b.removeAttribute("id");
+        b.dataset.act = src.id;
+        compactBar.appendChild(b);
+      }
+      compactBar.addEventListener("click", function (ev) {
+        var t = ev.target && ev.target.closest ? ev.target.closest("[data-act]") : null;
+        if (!t || !t.dataset.act) return;
+        var real = document.getElementById(t.dataset.act);
+        if (real) real.click();
+      });
+      document.body.appendChild(compactBar);
+      syncCompact();
+      /* 原按钮的文案/按压态变化（AI 汤主开关、音乐/音效/特效切换）同步到紧凑条；
+         只观察大顶栏子树，syncCompact 写的是紧凑条，不会自触发成死循环 */
+      if (typeof MutationObserver === "function") {
+        new MutationObserver(syncCompact).observe(topbarEl, {
+          subtree: true, attributes: true, attributeFilter: ["aria-pressed", "class", "style"]
+        });
+      }
+    }
+
+    function syncCompact() {
+      if (!compactBar || !topbarEl) return;
+      var src = topbarEl.querySelectorAll(".top-actions > .btn[id]");
+      var dst = compactBar.children;
+      for (var i = 0; i < src.length && i < dst.length; i++) {
+        if (dst[i].dataset.act !== src[i].id) continue;
+        if (dst[i].innerHTML !== src[i].innerHTML) dst[i].innerHTML = src[i].innerHTML;
+        var p = src[i].getAttribute("aria-pressed");
+        if (p == null) dst[i].removeAttribute("aria-pressed");
+        else dst[i].setAttribute("aria-pressed", p);
+      }
+    }
+
+    function measureTopbar() {
+      if (topbarEl && topbarEl.offsetHeight) tbH = topbarEl.offsetHeight;
+    }
+
+    function updateStuck() {
+      var y = window.scrollY || document.documentElement.scrollTop || 0;
+      /* 迟滞：滚过大顶栏大半（距顶 32px）才亮出紧凑条；回滚到 48px 内才收起。
+         旧版单阈值 >12 没有布局位移护航，边界处来回报销；现在即便反复跨越，
+         紧凑条也是覆盖层，页面内容纹丝不动。 */
+      var s = lastStuck ? y > tbH - 48 : y > tbH - 32;
       if (s !== lastStuck) {
         lastStuck = s;
         document.body.classList.toggle("topbar-stuck", s);
       }
-    }, false);
+    }
+
+    buildCompactBar();
+    measureTopbar();
+    window.addEventListener("resize", measureTopbar);
+    window.addEventListener("scroll", updateStuck, false);
+    updateStuck();
 
     var startBtn = $("#btn-start");
     if (startBtn) startBtn.addEventListener("click", function () {

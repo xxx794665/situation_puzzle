@@ -102,10 +102,13 @@ body {
   100% { transform: translate3d(30px, -118vh, 0) scale(1.35); opacity: 0; }
 }
 
-/* ---------- 顶栏（吸顶：下滚后导航始终可达，P1-3） ---------- */
+/* ---------- 顶栏（P1-3；2026-09-29 重影修复：大顶栏回归普通文档流） ----------
+   旧版 .topbar 是 sticky，且吸顶态 display:none 掉品牌行/音乐台、改 padding：
+   移动端顶栏高 200px+，这个切换瞬间整页内容瞬移一次，滚动位置被拉回阈值附近
+   又触发反向切换 → 两种布局在边界处反复交替（用户看到的抽搐/重影）。
+   现在大顶栏随页面自然滚走、布局永不变化；吸顶导航由覆盖式紧凑条承担。 */
 .topbar {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 40;
   background: rgba(13, 10, 8, .93);
   display: flex;
@@ -118,10 +121,34 @@ body {
   margin: 0 auto;
 }
 
-/* 吸顶后收拢：只留一行导航（品牌行与音乐台让位），窄屏顶栏原本 200px+ 不能整条吸顶 */
-body.topbar-stuck .topbar { padding-top: 8px; padding-bottom: 8px; gap: 8px; backdrop-filter: blur(6px); }
-body.topbar-stuck .brand,
-body.topbar-stuck .top-music { display: none; }
+/* 吸顶紧凑条：position:fixed 覆盖层，出现/消失零布局位移。
+   内容由 app.js 克隆大顶栏按钮生成（不带 id，点击转发给原按钮），
+   按压态/文案经 MutationObserver 与原按钮保持同步。 */
+.topbar-compact {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 45;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: calc(8px + var(--sat)) calc(14px + var(--sar)) 8px calc(14px + var(--sal));
+  background: rgba(13, 10, 8, .93);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, .35);
+  transform: translateY(-110%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .24s ease, opacity .24s ease;
+}
+body.topbar-stuck .topbar-compact {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
 
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-ico {
