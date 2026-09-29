@@ -373,7 +373,7 @@ export async function callModel(cfg, system, user) {
 /* 截断/空正文重试时临时放宽 maxTokens（与浏览器侧 js/ai.js 同口径） */
 function withLargerBudget(cfg) {
   var c = Object.assign({}, cfg);
-  c.maxTokens = Math.min(4000, Math.max(Number(cfg.maxTokens) || 1200, 800) * 2);
+  c.maxTokens = Math.min(32768, Math.max(Number(cfg.maxTokens) || 4000, 800) * 2);
   return c;
 }
 
@@ -399,8 +399,10 @@ async function callModelOnce(cfg, system, user) {
   var headers = isAnthropic
     ? Object.assign({ "content-type": "application/json", "x-api-key": cfg.apiKey, "anthropic-version": "2023-06-01" }, browserHeaders)
     : Object.assign({ "content-type": "application/json", "authorization": "Bearer " + cfg.apiKey }, browserHeaders);
-  /* 默认放宽到 1200：思考型模型 400 token 很容易把正文截断，导致空 content 直接判掉线 */
-  var maxTokens = Number(cfg.maxTokens) > 0 ? Number(cfg.maxTokens) : 1200;
+  /* 房间配置不传 maxTokens，一直走这里的兜底：默认 4000（与前端
+     js/ai.js 的 DEFAULTS 同口径）——思考型模型 1200 很容易把正文截断，
+     导致空 content 直接判掉线；上限与两侧 withLargerBudget 同为 32768 */
+  var maxTokens = Number(cfg.maxTokens) > 0 ? Number(cfg.maxTokens) : 4000;
   var temperature = cfg.temperature == null ? 0.4 : cfg.temperature;
   var body = isAnthropic
     ? { model: cfg.model, max_tokens: maxTokens, temperature: temperature, system: system, messages: [{ role: "user", content: user }] }

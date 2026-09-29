@@ -53,7 +53,10 @@
     model: "deepseek-chat",
     apiKey: "",
     timeoutMs: 20000,
-    maxTokens: 1200,
+    /* 默认 4000：思考型模型会把额度烧在思考上，1200 很容易截断出空正文。
+       上限 32768：glm-5.3-flash 这类 1M 上下文模型输出上限 128K，
+       老上限 4000 对它们卡得太死。 */
+    maxTokens: 4000,
     temperature: 0.4
   };
 
@@ -85,7 +88,7 @@
       model: typeof o.model === "string" ? o.model.trim() : d.model,
       apiKey: typeof o.apiKey === "string" ? o.apiKey.trim() : "",
       timeoutMs: clampNum(o.timeoutMs, 3000, 120000, d.timeoutMs),
-      maxTokens: clampNum(o.maxTokens, 64, 4000, d.maxTokens),
+      maxTokens: clampNum(o.maxTokens, 64, 32768, d.maxTokens),
       temperature: clampNum(o.temperature, 0, 1.5, d.temperature)
     };
     out.kind = providerOf(out.provider).kind === "anthropic" ? "anthropic" : "openai";
@@ -774,11 +777,12 @@
   var RETRY_HINT = "\n\n【上次的回答没被读懂，请重新回答】优先输出一个 JSON 对象：{\"verdict\":\"yes|no|partial|irr\",\"reply\":\"…\",\"clue\":0}；实在做不到 JSON，就只回一句话，以「是。」「不是。」「部分正确。」「与此无关。」其中之一开头，后面最多补一两句短提示。如果玩家一次问了好几个小问题，先给一个最贴切的总体判定词，再用短句逐一简短回答；禁止复述问题（「玩家问…」「你问的是…」这类句式不行）。严禁输出思考过程、分析、举例或任何理由，也不要提到汤底。";
 
   /* 截断重试时临时放宽 maxTokens：思考型模型很容易把额度烧在思考上，
-     正文还没写完就被掐——放宽一倍通常就够，仍不够则由上层报错，不硬凑。 */
+     正文还没写完就被掐——放宽一倍通常就够，仍不够则由上层报错，不硬凑。
+     上限与 clean() 的钳制同口径（32768）。 */
   function withLargerBudget(cfg) {
     var c = {};
     for (var k in cfg) if (Object.prototype.hasOwnProperty.call(cfg, k)) c[k] = cfg[k];
-    c.maxTokens = Math.min(4000, Math.max(cfg.maxTokens || 1200, 800) * 2);
+    c.maxTokens = Math.min(32768, Math.max(cfg.maxTokens || 4000, 800) * 2);
     return c;
   }
 
