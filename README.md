@@ -12,7 +12,7 @@
 [![题库](https://img.shields.io/badge/题库-100_精品_%2B_1942_汤库-orange)](#两套题库)
 [![联机](https://img.shields.io/badge/联机-Cloudflare_Workers-informational)](#多人房间)
 
-**[在线试玩](https://xiao-xiao6.github.io/luludawang-vibe-coding4/)**
+**[在线试玩](https://xxx794665.github.io/situation_puzzle/)**
 
 </div>
 
@@ -308,7 +308,8 @@ npx wrangler deploy
 
 允许的前端来源：
 
-- `https://xiao-xiao6.github.io`
+- `https://xxx794665.github.io`（本仓库 Pages）
+- `https://xiao-xiao6.github.io`（旧站，仍放行）
 - `http://localhost:8080` 与 `http://127.0.0.1:8080`
 - `http://localhost:5500`、`4173` 及其 `127.0.0.1` 写法
 
@@ -350,6 +351,6 @@ npx wrangler deploy
 
 **汤面已经备好，来熬一锅吧。**
 
-**[在线试玩](https://xiao-xiao6.github.io/luludawang-vibe-coding4/)**
+**[在线试玩](https://xxx794665.github.io/situation_puzzle/)**
 
 </div>

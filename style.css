@@ -102,10 +102,12 @@ body {
   100% { transform: translate3d(30px, -118vh, 0) scale(1.35); opacity: 0; }
 }
 
-/* ---------- 顶栏 ---------- */
+/* ---------- 顶栏（吸顶：下滚后导航始终可达，P1-3） ---------- */
 .topbar {
-  position: relative;
-  z-index: 2;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(13, 10, 8, .93);
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
@@ -115,6 +117,11 @@ body {
   max-width: 1500px;
   margin: 0 auto;
 }
+
+/* 吸顶后收拢：藏副标题、收内边距，给正文让行 */
+body.topbar-stuck .topbar { padding-top: 8px; padding-bottom: 8px; gap: 8px; backdrop-filter: blur(6px); }
+body.topbar-stuck .brand-txt p { display: none; }
+body.topbar-stuck .brand-ico { font-size: 24px; }
 
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-ico {
@@ -600,9 +607,9 @@ body.room-mode .qa-clear { display: none; }
   padding: calc(20px + var(--sat)) calc(20px + var(--sar)) calc(20px + var(--sab)) calc(20px + var(--sal));
   background: rgba(6, 4, 3, .74);
   backdrop-filter: blur(3px);
-  animation: fade .18s ease both;
 }
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+/* 不给弹窗播「从透明起步」的动画：后台标签 / 部分浏览器会把它停在 opacity:0，
+   变成看不见却拦截点击的全屏层（同 .panel 的既有先例）。显隐只靠 .hidden。 */
 
 /* ---------- 通用二级确认面板（防误触，2026-09-25） ---------- */
 .confirm-wrap .modal { max-width: 430px; }
@@ -627,9 +634,7 @@ body.room-mode .qa-clear { display: none; }
   background: linear-gradient(180deg, #241a13, #191310);
   box-shadow: 0 26px 60px rgba(0, 0, 0, .7);
   padding: 20px 20px 18px;
-  animation: rise-in .26s cubic-bezier(.2, .9, .3, 1.1) both;
 }
-@keyframes rise-in { from { opacity: 0; transform: translateY(18px) scale(.97); } to { opacity: 1; transform: none; } }
 
 .modal h3 {
   margin: 0 0 6px;
@@ -802,7 +807,7 @@ body[data-scene="sad"] .bg-img  { filter: saturate(.5) contrast(1.1) brightness(
 /* ---------- 原创标记 ---------- */
 .orig-badge {
   display: inline-block;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .06em;
   color: #2a1806;
@@ -1049,7 +1054,7 @@ body.fx-off .steam-field { display: none !important; }
 
 .pz-cats { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
 .pz-cat {
-  font-size: 10.5px;
+  font-size: 12px;
   letter-spacing: .04em;
   color: var(--dim-2);
   border: 1px dashed var(--line);
@@ -1351,7 +1356,7 @@ body.modal-open .room-chat { display: none; }
   .topbar { padding-left: calc(10px + var(--sal)); padding-right: calc(10px + var(--sar)); }
   .layout { padding-left: calc(10px + var(--sal)); padding-right: calc(10px + var(--sar)); }
   .top-actions .btn { font-size: 12px; padding: 8px 9px; }
-  .brand-txt p { font-size: 10.5px; letter-spacing: .1em; }
+  .brand-txt p { font-size: 12px; letter-spacing: .1em; }
   .stat { font-size: 11.5px; padding: 6px 8px; gap: 6px; }
   .stat-k { font-size: 11px; }
   .pz-card { padding: 10px 11px; }
@@ -1372,7 +1377,7 @@ body.modal-open .room-chat { display: none; }
   border: 1px dashed var(--line-2);
   border-radius: 999px;
   padding: 0 6px;
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.6;
 }
 #lib-src .chip {
@@ -1500,7 +1505,7 @@ body.modal-open .room-chat { display: none; }
 .rp-state.wait { color: var(--no); }
 .rp-off { font-size: 11px; color: var(--no); }
 .room-tag {
-  font-size: 10.5px;
+  font-size: 12px;
   border-radius: 999px;
   padding: 1px 7px;
   border: 1px solid var(--line-2);
@@ -1513,7 +1518,7 @@ body.modal-open .room-chat { display: none; }
 /* 死座位：房主可请离（多②）——按钮做得低调，不抢视线 */
 .rp-kick {
   margin-left: auto;
-  font-size: 10.5px;
+  font-size: 12px;
   padding: 2px 8px;
   border-color: rgba(224, 112, 94, .5);
   color: #e0705e;
@@ -1593,6 +1598,11 @@ body.modal-open .room-chat { display: none; }
 /* 展开时整体固定高度：头部 + 日志区 + 输入区，尺寸稳定不抽动 */
 .room-chat:not(.collapsed) { height: 400px; }
 .room-chat.hidden { display: none; }
+/* 聊天浮层只属于房间屏：切到汤库 / 随机 / 单人对局一律消失
+   （自动重连也不会把浮层带出房间，P0-2 的一半）。 */
+body:not(.room-mode) .room-chat { display: none; }
+/* 收起药丸抬到提问栏上方，别压住输入框和「提问」按钮 */
+.room-chat.collapsed { bottom: calc(78px + var(--sab)); }
 .room-chat.collapsed .rc-log,
 .room-chat.collapsed .rc-send { display: none; }
 .rc-head {
@@ -1618,12 +1628,12 @@ body.modal-open .room-chat { display: none; }
   align-items: center;
   gap: 6px;
 }
-.rc-hint { margin-left: auto; font-size: 10.5px; color: var(--dim-2); }
+.rc-hint { margin-left: auto; font-size: 12px; color: var(--dim-2); }
 .rc-badge {
   min-width: 16px;
   border-radius: 999px;
   padding: 0 5px;
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 16px;
   text-align: center;
   color: #1a1208;
@@ -1709,7 +1719,7 @@ body.modal-open .room-chat { display: none; }
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 0 7px;
-  font-size: 10.5px;
+  font-size: 12px;
   border: 1px solid var(--line-2);
   color: var(--dim);
 }
@@ -1778,6 +1788,8 @@ body.room-mode .qa-log {
   line-height: 1.25;
   padding: 9px 15px;
   min-width: 46px;
+  flex: 0 0 auto;
+  white-space: nowrap;
   color: #f3e8ff;
   letter-spacing: 0;
   border: 1px solid rgba(196, 150, 240, .58);
@@ -1845,6 +1857,8 @@ body.room-mode .qa-log {
   line-height: 1.25;
   padding: 9px 15px;
   min-width: 46px;
+  flex: 0 0 auto;
+  white-space: nowrap;
   color: #fff0ee;
   letter-spacing: 0;
   border: 1px solid rgba(240, 150, 140, .58);
@@ -2031,7 +2045,7 @@ body.room-mode .qa-log {
 }
 .room-clue-item .rc-n { font-weight: 700; color: var(--broth-2); margin-right: 6px; }
 .room-clue-item .rc-t {
-  font-size: 10.5px;
+  font-size: 12px;
   border: 1px solid var(--line-2);
   border-radius: 999px;
   padding: 0 6px;
@@ -2164,6 +2178,9 @@ body.my-turn .askbar { border-color: var(--yes); box-shadow: 0 0 18px rgba(104, 
   body.chat-kb .room-chat:not(.collapsed) .rc-log { height: min(18dvh, 130px); }
   .askbar { padding-right: 0; }
   .askbar .btn { min-height: var(--tap); }
+  /* 窄屏热区兑现 README 承诺：筛选 chips / 换 AI 汤主链接也到 44px */
+  .chip { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; }
+  .ai-link { display: inline-flex; align-items: center; min-height: 44px; }
   #room-q-input, #q-input, #guess-input, #rguess-input { font-size: 16px; }
   .room-player { flex-wrap: wrap; }
   .rp-kick { min-height: 36px; }
@@ -2494,7 +2511,7 @@ body.my-turn .askbar { border-color: var(--yes); box-shadow: 0 0 18px rgba(104, 
 }
 .guess-stats .gs i {
   font-style: normal;
-  font-size: 10.5px;
+  font-size: 12px;
   letter-spacing: .1em;
   color: var(--dim-2);
 }
@@ -2609,7 +2626,7 @@ body.my-turn .askbar { border-color: var(--yes); box-shadow: 0 0 18px rgba(104, 
 /* 汤库卡片 / 汤面 meta 的风味徽章 */
 .fbadges { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 0 0; }
 .fbadge {
-  font-size: 10.5px;
+  font-size: 12px;
   letter-spacing: .08em;
   padding: 1px 7px 2px;
   border-radius: 99px;
@@ -2658,4 +2675,33 @@ body.my-turn .askbar { border-color: var(--yes); box-shadow: 0 0 18px rgba(104, 
 @media (max-width: 860px) {
   .flavor-sep { height: 14px; margin: 0 2px; }
   .fbadge { font-size: 10px; padding: 1px 6px 2px; }
+}
+
+/* ============================================================
+ * 移动端走查修复（2026-09-29，证据见 tools/mobile_walkthrough_20260929/）
+ * ============================================================ */
+
+/* 单列大屏限宽：iPad 竖屏 834 / 横屏 1024~1180 时正文一行 48~70 字没法读。
+   正文面板限宽居中（房间屏不适用，保持满宽）；
+   单列档的展开聊天也抬到提问栏上方。 */
+@media (max-width: 1180px) {
+  body:not(.room-mode) .col-stage > .panel { max-width: 640px; margin-left: auto; margin-right: auto; }
+}
+@media (max-width: 1180px) and (min-width: 861px) {
+  .room-chat:not(.collapsed) { bottom: calc(96px + var(--sab)); max-height: min(42dvh, 340px); }
+}
+
+/* 触屏热区兜底（iPad / 手机，pointer:coarse；桌面 pointer:fine 不受影响）：
+   窄屏档已按宽度兜过一遍，这里补平板横屏（861~1180 是触屏却不落窄屏档）。
+   音量滑条 4px 高没法点：触屏下加高轨道、放大拇指。 */
+@media (pointer: coarse) {
+  .chip { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; }
+  .btn { min-height: 44px; }
+  .ai-link { display: inline-flex; align-items: center; min-height: 44px; }
+  .dock-btn { width: 40px; height: 40px; }
+  .rc-head { min-height: 44px; }
+  .rc-send .input, .rc-send .btn { min-height: 44px; }
+  .dock-vol { height: 26px; border-radius: 13px; }
+  .dock-vol::-webkit-slider-thumb { width: 18px; height: 18px; }
+  .dock-vol::-moz-range-thumb { width: 18px; height: 18px; }
 }

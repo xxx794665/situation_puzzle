@@ -161,6 +161,13 @@ emit(
  * 才能让 AI 汤主吃真底判定（否则就是空底瞎编）。防作弊交给玩家自觉。
  * 多人房判定仍在服务端 Worker，不受影响。
  */
+/* 风味标签完整性提示（只警告不阻断）：没有 flavor 的题在未成年模式 /
+ * 语言梗过滤下按「未标记」放行（matchFlavor 只挡显式命中的标签）。
+ * 新题入库必须补标签（tools/admin.html 导出补丁 / apply_flavor_tags.js）。 */
+const noFlavorCore = coreList.filter((p) => !p.flavor || !p.flavor.length).length;
+if (noFlavorCore) console.warn("⚠ " + noFlavorCore + " 道精品题没有 flavor，将绕过未成年/语言梗过滤（直接补进 js/data*.js）");
+const noFlavorLib = libList.filter((p) => !p.flavor || !p.flavor.length).length;
+if (noFlavorLib) console.warn("⚠ " + noFlavorLib + " 道库题没有 flavor，将绕过未成年/语言梗过滤（用 tools/admin.html 或 apply_flavor_tags.js 补齐）");
 const libPublic = libList.map((p) => Object.assign({
   id: p.id,
   srcNo: p.srcNo,
