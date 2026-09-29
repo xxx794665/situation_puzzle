@@ -316,6 +316,9 @@
 
   function preloadSoupLib() {
     setTimeout(function () {
+      /* 纯离线联动：没配 AI 时库题不可玩，2MB 汤库档不必拉；
+         之后配好 AI 会由 AI.onChange 补载 */
+      if (!aiOn()) return;
       var idle = window.requestIdleCallback || function (f) { setTimeout(f, 1); };
       idle(function () { ensureSoupLib().catch(function () { /* 失败由各入口的等待兜底 */ }); });
     }, 2000);
@@ -437,13 +440,21 @@
     saveProgress();
   }
 
+  /* 纯离线模式提示（欢迎页）：本机没配 AI 汤主时常驻，配上即隐。
+     文案在 index.html，这里只管显隐（init 与 AI.onChange 各刷一次） */
+  function paintIntroOffline() {
+    var el = $("#intro-offline");
+    if (el) el.classList.toggle("hidden", aiOn());
+  }
+
   /* 首屏「继续上一锅」：有快照才显示，点一下回到那口锅 */
   function paintResume() {
     var b = $("#btn-resume");
     if (!b) return;
     var s = currentSession();
     var p = s && s.pid ? E.getPuzzle(s.pid) : null;
-    b.classList.toggle("hidden", !p);
+    /* 纯离线联动：库局没有 AI 问不下去，按钮直接藏 */
+    b.classList.toggle("hidden", !p || (isLib(p) && !aiOn()));
     if (p) b.textContent = "继续上一锅：" + (p.dispTitle || p.title);
   }
 
@@ -975,13 +986,11 @@
       state.asked[key] = 1;
       askAi(p, raw, res, null);
     } else {
-      /* 没接 AI：本项目只走 AI，绝不外显死板关键词回复 */
-      state.qCount--;
-      addLine("host", "sys", esc("AI 汤主掉线了，请重新提问一次。"));
-      sfx("irr");
-      input.value = "";
-      renderStats();
-      return;
+      /* 纯离线：精品层走关键词汤主——与 Worker 未配 AI 的口径一致（规格 #14），
+         题库自带判定词、回复与线索，完全本地判定。
+         库层没有关键词表，已在上面拦掉，走不到这里。 */
+      pushReveal(res);
+      renderKeywordAnswer(res);
     }
 
     state.asked[key] = 1;
@@ -1276,9 +1285,22 @@
   function bindAiModal() {
     if (!AI) return;
 
-    /* 配置一变（含外部直接 save）就刷新状态条，避免界面和实际不一致 */
+    /* 配置一变（含外部直接 save）就刷新状态条，避免界面和实际不一致；
+       纯离线联动：AI 配好/清空会改变库层可见性——配好就补载汤库重画，
+       清空则立刻把库题从列表与抽取里撤下 */
     AI.onChange(function () {
       paintAiBar();
+      paintIntroOffline();
+      paintResume();
+      if (aiOn()) {
+        ensureSoupLib().catch(function () { /* 加载失败由各入口的等待兜底 */ }).then(function () {
+          renderLibraryFilters();
+          renderLibrary();
+        });
+      } else {
+        renderLibraryFilters();
+        renderLibrary();
+      }
     });
     fillProviderOptions();
 
@@ -1433,7 +1455,8 @@
     sfx("paper");
     state.qCount++;
 
-    /* 关键词判定只做内部兜底，绝不上屏：本项目只走 AI，判定由 AI 汤主负责 */
+    /* 关键词判定：AI 在值班时只作内部参考不上屏（判定由 AI 负责）；
+       纯离线时它就是正式汤主，直接上屏 */
     var j = E.judgeGuess(p, text);
 
     if (aiOn()) {
@@ -1482,11 +1505,27 @@
       return;
     }
 
-    /* 没接 AI：本项目不接关键词汤主，拒绝受理而不是外显死板回复 */
-    state.qCount = Math.max(0, state.qCount - 1);
-    fb.textContent = "AI 汤主掉线了，请重新提交推理。";
-    fb.className = "guess-feedback no";
-    renderStats();
+    /* 纯离线：精品层走关键词判定（与 Worker 未配 AI 口径一致）——j 已在上面算好。
+       库层没有预设答案词，已在上面拦掉，走不到这里。 */
+    var lvl = j.level;
+    var kwNote = j.note;
+    fb.textContent = kwNote;
+    fb.className = "guess-feedback " + (lvl === "solved" ? "ok" : (lvl === "close" || lvl === "vague") ? "close" : "no");
+    state.history.push({ q: "【推理】" + text, a: kwNote });
+    renderQaLog();
+    if (lvl === "solved") {
+      var kwLn = addLine("host", "yes", '<b class="verdict yes">对了</b> ' + esc(qaStrip("对了", kwNote)), "关键词汤主");
+      sfx("win");
+      if (FX) {
+        if (kwLn) FX.burstFrontAt(kwLn, { count: 90, power: 1.4, colors: ["#ffd166", "#f6cf90", "#68cf9a", "#ffe9c4", "#ff8f6e"] });
+        FX.burstFront(window.innerWidth / 2, window.innerHeight * 0.34, { count: 150, power: 1.8 });
+      }
+      setTimeout(function () { finish(); }, 520);
+    } else {
+      addLine("host", lvl === "close" ? "partial" : "irr", esc(qaStrip(lvl === "close" ? "部分正确" : "", kwNote)), "关键词汤主");
+      sfx(lvl === "close" ? "partial" : "lose");
+      renderStats();
+    }
   }
 
   function finish(fallbackStars) {
@@ -1574,8 +1613,9 @@
 
   function nextPuzzle() {
     /* 库题继续从库里抽，精品题继续从精品层抽。
-       「下一锅」也是随机抽取：同样走未成年模式 + 近期抽取记录（Q15/Q18）。 */
-    var lib = isLibPid(state.pid);
+       「下一锅」也是随机抽取：同样走未成年模式 + 近期抽取记录（Q15/Q18）。
+       纯离线联动：本机没配 AI 时库层不可玩，库局「下一锅」退回精品层。 */
+    var lib = isLibPid(state.pid) && aiOn();
     if (lib && !soupLib().length) {
       toast("正在开汤库…");
       return ensureSoupLib().catch(function () { }).then(nextPuzzle);
@@ -1775,16 +1815,18 @@
   /* 首页/顶栏「随机一题」：精品 + 汤库全部可抽，不再只在精品 100 里转。
      库题走本地真汤底。按体量加权：库大就更容易抽到库题，但精品至少占 1/6。
      未成年模式与风味筛选（默认不限）在这里同样生效；近期抽过的题优先避开。
-     无筛选的随机入口不选语言梗题（默认禁用，见 ADR 0002）。 */
+     无筛选的随机入口不选语言梗题（默认禁用，见 ADR 0002）。
+     纯离线联动：库题没有关键词表、判定必须走 AI 汤主，本机没配 AI 时
+     整层不进抽取池，连 2MB 的汤库档都不必拉。 */
   function randomAnywhere() {
     /* 按体量加权要拿全库体量：汤库还没加载就先等（加载失败则退回精品层） */
-    if (!soupLib().length) {
+    if (aiOn() && !soupLib().length) {
       return ensureSoupLib().catch(function () { }).then(function () { return randomAnywhere(); });
     }
     var sel = flavorSel("", "", []);
     var minor = minorOn();
     var ex = E.recentExcludes();
-    var libList = soupLib();
+    var libList = aiOn() ? soupLib() : [];
     var corePool = E.pool({ flavor: sel, minor: minor });
     var libAvail = libList.length ? E.drawFromLibrary(libList, { hasTruth: true, flavor: sel, minor: minor }, ex) : null;
     var coreAvail = corePool.length ? E.drawFrom(corePool, ex) : null;
@@ -1823,6 +1865,9 @@
 
   function libraryFiltered() {
     var list = E.searchLibrary(mergedLib(), libState.kw);
+    /* 纯离线联动：lib_* 没有关键词表、判定必须走 AI 汤主，本机没配 AI 就不查出；
+       精品层条目（coreAsLib，id 无 lib_ 前缀）自带完整汤底，保留 */
+    if (!aiOn()) list = list.filter(function (p) { return !isLib(p); });
     return E.libraryPool(list, {
       cat: libState.cat,
       difficulty: libState.difficulty,
@@ -1976,12 +2021,15 @@
 
     var badge = $("#lib-count");
     if (badge) badge.textContent = show.length + " / " + list.length;
+    /* 纯离线联动：库题整层隐藏时给一句说明，免得「1942 道去哪了」 */
+    var off = $("#lib-offline-note");
+    if (off) off.classList.toggle("hidden", aiOn());
     var more = $("#btn-lib-more");
     if (more) more.classList.toggle("hidden", show.length >= list.length);
   }
 
   function openLibrary() {
-    if (!soupLib().length) {
+    if (aiOn() && !soupLib().length) {
       toast("正在开汤库…");
       return ensureSoupLib().catch(function () { }).then(openLibrary);
     }
@@ -2254,6 +2302,7 @@
     initSoloMemo();
 
     bindAiModal();
+    paintIntroOffline();
 
     var guessBtn = $("#btn-guess");
     if (guessBtn) guessBtn.addEventListener("click", openGuess);

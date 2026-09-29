@@ -1511,6 +1511,8 @@
     var LIB2 = window.SOUP_LIBRARY || [];
     var PUZ2 = window.PUZZLES || [];
     var st = { page: 1, kw: "", cat: "全部", difficulty: 0, layer: "all", style: "", tone: "", opt: [] };
+    /* 纯离线联动：房间没配 AI 时库层问不了，选汤面板直接不给汤库层 */
+    var roomAiOn = !!(R.snap && R.snap.ai);
     var PAGE = 60;
     var host = document.createElement("div");
     host.className = "modal-wrap";
@@ -1521,7 +1523,7 @@
       '<div class="chips" id="room-lib-layers" style="margin-bottom:10px">' +
       '<button type="button" class="chip on" data-layer="all">全部题</button>' +
       '<button type="button" class="chip" data-layer="core">精品 100</button>' +
-      '<button type="button" class="chip" data-layer="lib">汤库全部</button>' +
+      (roomAiOn ? '<button type="button" class="chip" data-layer="lib">汤库全部</button>' : "") +
       "</div>" +
       '<div class="chips cats" id="room-lib-cats" style="margin-bottom:8px"></div>' +
       '<div class="chips" id="room-lib-diffs" style="margin-bottom:10px"></div>' +
@@ -1588,13 +1590,14 @@
     }
 
     /* 本地候选：core 用 PUZZLES，lib 用 SOUP_LIBRARY（与单人汤库同一份）。
-       layer=all 时两层都合进来，随机一题才能抽到精品以外的题。 */
+       layer=all 时两层都合进来，随机一题才能抽到精品以外的题。
+       纯离线联动：房间没配 AI 时库层整层不进候选。 */
     function localPool() {
       var out = [];
       if (st.layer !== "lib") {
         (PUZ2 || []).forEach(function (p) { if (matchCore(p)) out.push(p); });
       }
-      if (st.layer !== "core") {
+      if (st.layer !== "core" && roomAiOn) {
         var list = E2 ? E2.searchLibrary(LIB2, st.kw) : LIB2;
         var lib = E2 ? E2.libraryPool(list, {
           cat: st.cat,
@@ -1613,7 +1616,8 @@
       if (st.layer === "core") {
         if (E2) cats = ["全部"].concat(E2.allCats(PUZ2));
       } else if (E2) {
-        cats = ["全部"].concat(E2.libraryCats(st.layer === "lib" ? LIB2 : LIB2.concat(PUZ2)));
+        /* 没配房间 AI 时候选只剩精品层：题材条别再出现库层独有的词 */
+        cats = ["全部"].concat(E2.libraryCats(roomAiOn ? (st.layer === "lib" ? LIB2 : LIB2.concat(PUZ2)) : PUZ2));
       }
       if (cats.indexOf(st.cat) === -1) st.cat = "全部";
       catEl.innerHTML = cats.map(function (c) {
@@ -1795,17 +1799,19 @@
   }
 
   /* 房主「随机一题」：精品 + 汤库全部可抽，抽到就直接选上，不再只在精品 100 里转。
-     房间未成年模式（房规）挡红汤/黄汤；房主的近期抽取记录在这里写入并避开（Q18）。 */
+     房间未成年模式（房规）挡红汤/黄汤；房主的近期抽取记录在这里写入并避开（Q18）。
+     纯离线联动：库层判定必须走房主配置的房间 AI（快照 ai 字段），没配就整层不进抽取池。 */
   function doRoomRandom() {
     var E2 = window.SoupEngine;
     var LIB2 = window.SOUP_LIBRARY || [];
     var PUZ2 = window.PUZZLES || [];
     var minor = roomMinor();
+    var roomAiOn = !!(R.snap && R.snap.ai);
     var sel = (E2 && E2.matchFlavor) ? { style: "", tone: "", optional: [] } : null;
     var ex = (E2 && E2.recentExcludes) ? E2.recentExcludes() : [];
-    var libAvail = (LIB2.length && E2 && E2.drawFromLibrary) ? E2.drawFromLibrary(LIB2, { hasTruth: false, flavor: sel, minor: minor }, ex) : null;
+    var libAvail = (roomAiOn && LIB2.length && E2 && E2.drawFromLibrary) ? E2.drawFromLibrary(LIB2, { hasTruth: false, flavor: sel, minor: minor }, ex) : null;
     var coreAvail = (PUZ2.length && E2 && E2.drawFrom) ? E2.drawFrom(E2.pool({ flavor: sel, minor: minor }), ex) : (PUZ2.length ? PUZ2[Math.floor(Math.random() * PUZ2.length)] : null);
-    var libWeight = LIB2.length;
+    var libWeight = roomAiOn ? LIB2.length : 0;
     var coreWeight = PUZ2.length ? Math.max(PUZ2.length, Math.ceil(libWeight / 5)) : 0;
     var total = libWeight + coreWeight;
     var pick = null;

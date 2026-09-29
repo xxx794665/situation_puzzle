@@ -111,6 +111,8 @@
         <div class="pot" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 10.5h15"/><path d="M6 10.5v5.2a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4v-5.2"/><path d="M4.5 10.5H3m18 0h-1.5"/><path d="M9.2 7.3c-.6-1 .6-1.7 0-2.7M12 7.3c-.6-1 .6-1.7 0-2.7M14.8 7.3c-.6-1 .6-1.7 0-2.7"/></svg></div>
         <h2>欢迎来到深海汤屋</h2>
         <p class="intro-lead">汤面（谜面）已经备好，你只能向汤主提问。<br />汤主只会回答三种话：<b class="c-yes">是</b>、<b class="c-no">不是</b>、<b class="c-irr">与此无关</b>。</p>
+        <!-- 纯离线模式联动：本机没配 AI 汤主时由 app.js 显示，配上即隐（AI.onChange 同步刷新） -->
+        <p class="intro-offline hidden" id="intro-offline" role="note">纯离线模式：还没配置 AI 汤主。汤库里的题需要 AI 判定，已从抽取与筛选中隐藏；精品层由关键词汤主本地判定，照常可玩。点顶部「AI 汤主」可解锁全部题库与更懂人话的汤主。</p>
         <ul class="rules">
           <li><b>1.</b> 用提问一点点逼近真相，右侧备忘录可以随手记下推理。</li>
           <li><b>2.</b> 觉得想通了，就点「我要猜汤底」，用自己的话把推理讲清楚。</li>
@@ -203,6 +205,8 @@
         <span class="badge" id="lib-count">0 / 0</span>
       </div>
       <input id="lib-search" class="input" type="search" placeholder="搜索标题或汤面，例如：电梯" autocomplete="off" aria-label="搜索汤库" />
+      <!-- 纯离线模式联动：库题整层隐藏时显示（app.js renderLibrary 控制显隐） -->
+      <p class="lib-offline-note hidden" id="lib-offline-note" role="note">纯离线模式：汤库题需要 AI 汤主判定，已整层隐藏，只显示精品层。</p>
       <p class="chips-label">题材</p>
       <div class="chips cats" id="lib-cat" role="group" aria-label="按题材筛选"></div>
       <p class="chips-label">火候</p>

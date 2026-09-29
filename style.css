@@ -320,6 +320,8 @@ body.room-mode .qa-clear { display: none; }
 
 /* ---------- 汤库（1361 题 + 精品层汤单的归宿） ---------- */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 11px; }
+/* 纯离线模式提示（汤库页）：库题整层隐藏时说明只剩精品层 */
+.lib-offline-note { margin: 0 0 10px; font-size: 12.5px; line-height: 1.7; color: var(--part); }
 /* 两级筛选的分区标签：让「大类」和「题材」一眼能分清 */
 .chips-label {
   margin: 0 0 5px;
@@ -425,6 +427,18 @@ body.room-mode .qa-clear { display: none; }
   margin: 12px 0 10px;
 }
 .intro-lead { color: var(--dim); font-size: 14.5px; max-width: 560px; margin: 0 auto 18px; }
+/* 纯离线模式提示（欢迎页）：没配 AI 汤主时常驻，配上即隐 */
+.intro-offline {
+  color: var(--part);
+  font-size: 13px;
+  line-height: 1.8;
+  max-width: 560px;
+  margin: -6px auto 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--panel);
+}
 .c-yes { color: var(--yes); }
 .c-no { color: var(--no); }
 .c-irr { color: var(--irr); }
